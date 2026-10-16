@@ -1,0 +1,38 @@
+name: Deploy to Server via FTP
+
+# This repo deploys itself to public_html/music (brunovida.si/music). The
+# brunovidasi.com repo excludes music/ from its own deploy, so neither touches
+# the other's files. The instance (config, database) isn't in the repo, and the
+# deploy only ever deletes files it uploaded itself, so it stays as it is.
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  ftp-deploy:
+    name: FTP Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # FTP_SERVER_DIR (a repository variable) is only needed for an FTP account
+      # whose root is not the hosting account's: one locked to the music folder
+      # uses ./
+      - name: Deploy via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./
+          server-dir: ${{ vars.FTP_SERVER_DIR || '/domains/brunovidasi.com/public_html/music/' }}
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            **/.github/**

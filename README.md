@@ -179,8 +179,14 @@ wrong address takes exactly as long to answer as a wrong password.
 
 ## Deployment
 
-The repo deploys by FTP to `public_html/`, and this folder lands at
-`public_html/music`, i.e. `brunovida.si/music`.
+This repo deploys itself: every push to `main` runs its FTP Action
+(`.github/workflows/deploy.yml`) to `public_html/music`, i.e.
+`brunovida.si/music`, uploading only what changed. The `brunovidasi.com` repo
+leaves `music/` out of its own deploy (`music/**` in its `exclude`), so neither
+deploy uploads or deletes the other's files. The Action needs the `FTP_SERVER`,
+`FTP_USERNAME` and `FTP_PASSWORD` secrets; an FTP account whose root is the
+music folder itself also needs the `FTP_SERVER_DIR` variable, set to `./`. It
+only ever deletes files it uploaded, so anything put there by hand stays.
 Only `public/` is web-reachable: `.htaccess` maps every request into it, and
 `config/`, `includes/`, `cron/`, `sql/` and `data/` each carry a deny-all
 `.htaccess` as well.
@@ -202,7 +208,7 @@ deploy.
 
 ### First deploy
 
-1. Push to `main`; the GitHub Action FTPs the tree up.
+1. Push to `main`; this repo's GitHub Action FTPs the tree up.
 2. Create `music-instance/config.php` with `'env' => 'production'`, the Discogs
    token, `owner_email` and a `cron_token`.
 3. Either upload the dev SQLite database as `music-instance/data/collection.production.sqlite`
