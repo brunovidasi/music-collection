@@ -3,14 +3,12 @@
 require_once __DIR__ . '/../includes/bootstrap.php';
 
 $title = setting('site_title', DEFAULT_SITE_TITLE);
-$intro = setting('site_intro', DEFAULT_SITE_INTRO);
 
 $page = [
     'title'   => "$title — Bruno's Vinyl",
     'styles'  => ['floor', 'crate', 'morph', 'spotlight'],
     'lead'    => hero_eyebrow(),
     'heading' => $title,
-    'intro'   => e($intro),
     'stats'   => hero_stats(hero_figures()),
     'links'   => hero_links(null, true, 'Artist pages', true),
     'platter' => hero_platter(),

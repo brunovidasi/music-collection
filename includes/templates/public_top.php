@@ -3,7 +3,7 @@
  * The top of a public page, down to the end of the header.
  *
  * @var array $page title, description, styles, body (attributes), lead, heading,
- *                  intro (HTML), stats, links, platter
+ *                  intro (HTML, optional), stats, links, platter
  */
 ?>
 <!DOCTYPE html>
@@ -29,9 +29,11 @@
   <div class="hero-inner">
     <div class="hero-text">
       <?= $page['lead'] ?? '<a class="back" href="' . e(url('')) . '">← Full Collection</a>' ?>
-      <div class="display"><?= hero_title($page['heading']) ?></div>
+      <?= hero_display($page['heading']) ?>
       <?= hero_rule() ?>
+<?php if (isset($page['intro'])): ?>
       <p><?= $page['intro'] ?></p>
+<?php endif; ?>
 <?php if (isset($page['stats'])): ?>
       <?= $page['stats'] ?>
 <?php endif; ?>

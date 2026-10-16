@@ -100,7 +100,7 @@ a { color: inherit; }
 /* The header is its own dark band over the floor, ruled off at the bottom.
    Painted on the header itself: a z-index:-1 layer would sit under the body's wood. */
 header.hero {
-  padding: 3.5rem 1.5rem 2rem;
+  padding: 2.25rem 1.5rem 1.6rem;
   position: relative;
   background: linear-gradient(to bottom, rgba(0,0,0,0.6), rgba(0,0,0,0.45));
   border-bottom: 1px solid var(--line-strong);
@@ -115,7 +115,7 @@ header.hero {
 }
 
 /* Room for the record, when it is switched on. */
-.hero:has(.hero-platter) .hero-inner { min-height: 260px; }
+.hero:has(.hero-platter) .hero-inner { min-height: 220px; }
 
 /* The type sits above the record. */
 .hero-text {
@@ -126,7 +126,7 @@ header.hero {
 }
 
 .hero-text .display {
-  font-size: clamp(2.4rem, 5vw, 3.6rem);
+  font-size: clamp(2.2rem, 4.4vw, 3.1rem);
   line-height: 0.98;
   text-shadow: 0 2px 24px rgba(0,0,0,0.45);
 }
@@ -146,7 +146,7 @@ header.hero {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  margin-bottom: 0.8rem;
+  margin-bottom: 0.6rem;
   font-size: 0.7rem;
   font-weight: 500;
   letter-spacing: 0.24em;
@@ -162,7 +162,7 @@ header.hero {
   align-items: center;
   gap: 0.5rem;
   width: 9rem;
-  margin: 0.9rem 0 0.1rem;
+  margin: 0.7rem 0 0;
 }
 
 .hero-rule::before {
@@ -181,29 +181,29 @@ header.hero {
 }
 
 .hero-text p {
-  margin: 0.7rem 0 0;
+  margin: 0.55rem 0 0;
   color: rgba(242,234,216,0.75);
   font-size: 1rem;
   max-width: 38ch;
 }
 
 /* The shelf in numbers, under the intro. */
-.hero-stats { display: flex; flex-wrap: wrap; margin-top: 1.4rem; }
+.hero-stats { display: flex; flex-wrap: wrap; margin-top: 1rem; }
 
-.hero-stat { padding: 0 1.4rem; border-left: 1px solid var(--line-strong); }
+.hero-stat { padding: 0 1.2rem; border-left: 1px solid var(--line-strong); }
 .hero-stat:first-child { padding-left: 0; border-left: 0; }
 
 .hero-stat b {
   display: block;
-  font: 600 2rem/1 'Fraunces', serif;
+  font: 600 1.65rem/1 'Fraunces', serif;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
 
 .hero-stat span {
   display: block;
-  margin-top: 0.35rem;
-  font-size: 0.66rem;
+  margin-top: 0.25rem;
+  font-size: 0.62rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: rgba(242,234,216,0.55);
@@ -215,11 +215,11 @@ header.hero {
   position: absolute;
   z-index: 1;
   /* a little below the middle, so the tonearm's pivot clears the top */
-  top: calc(50% + 1.2rem);
+  top: calc(50% + 0.8rem);
   right: max(-40px, calc((100vw - var(--page-max)) / 2 - 110px));
-  width: 340px;
-  height: 340px;
-  margin-top: -170px;
+  width: 290px;
+  height: 290px;
+  margin-top: -145px;
   pointer-events: none;
 }
 
@@ -264,7 +264,19 @@ header.hero {
 
 /* On a phone the record goes behind the type, faint, rather than beside it. */
 @media (max-width: 720px) {
-  header.hero { padding: 2.5rem 1.5rem 1.4rem; }
+  header.hero { padding: 1.75rem 1.5rem 1.2rem; }
+  /* The title stays on one line, shrunk to the width: about 0.47em a character
+     (hero_display() sets --chars), less the header's side padding. */
+  .hero-text .display {
+    white-space: nowrap;
+    font-size: min(2.2rem, calc((100vw - 3rem) / (var(--chars) * 0.47)));
+  }
+  /* The line above the title too: about 0.83em a character with its wide
+     tracking, less the rule and gap before it (hero_eyebrow() sets --chars). */
+  .hero-eyebrow {
+    white-space: nowrap;
+    font-size: min(0.7rem, calc((100vw - 5.4rem) / (var(--chars) * 0.83)));
+  }
   .hero:has(.hero-platter) .hero-inner { min-height: 0; }
   .hero-platter { width: 240px; height: 240px; margin-top: -120px; right: -90px; opacity: 0.3; }
   .hero-arm { display: none; }
@@ -1268,7 +1280,7 @@ footer {
   display: flex;
   flex-wrap: wrap;
   gap: 0.55rem;
-  margin-top: 1.1rem;
+  margin-top: 0.9rem;
 }
 
 .hero-links a,

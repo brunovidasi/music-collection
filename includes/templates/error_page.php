@@ -27,7 +27,7 @@ http_response_code($error['status']);
   <?= hero_intro() ?>
   <div class="hero-inner">
     <div class="hero-text">
-      <div class="display"><?= hero_title($error['heading']) ?></div>
+      <?= hero_display($error['heading']) ?>
       <?= hero_rule() ?>
       <p><?= e($error['message']) ?></p>
       <p style="margin-top:1.2rem;"><a class="back" href="<?= e(url('')) ?>">← Full Collection</a></p>

@@ -9,7 +9,6 @@
  */
 
 const DEFAULT_SITE_TITLE = 'The Collection';
-const DEFAULT_SITE_INTRO = 'Every record, CD and disc Bruno owns, straight from the Discogs shelf.';
 
 const HERO_STATS = [
     'records' => 'Records',
@@ -60,6 +59,14 @@ function hero_options(): array
     }
 
     return $options;
+}
+
+/**
+ * The title, carrying its length so a phone can size it onto one line.
+ */
+function hero_display(string $title): string
+{
+    return '<div class="display" style="--chars: ' . max(1, mb_strlen(trim($title))) . '">' . hero_title($title) . '</div>';
 }
 
 /**
@@ -154,7 +161,8 @@ function hero_eyebrow(): string
 {
     $text = trim((string) hero_options()['eyebrow']);
 
-    return $text === '' ? '' : '<div class="hero-eyebrow">' . e($text) . '</div>';
+    // Its length lets a phone size it onto one line, as with the title.
+    return $text === '' ? '' : '<div class="hero-eyebrow" style="--chars: ' . mb_strlen($text) . '">' . e($text) . '</div>';
 }
 
 function hero_rule(): string

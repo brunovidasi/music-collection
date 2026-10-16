@@ -46,7 +46,6 @@ if (is_post()) {
     }
 
     set_setting('site_title', post('site_title') ?: DEFAULT_SITE_TITLE);
-    set_setting('site_intro', post('site_intro'));
     set_setting('detail_max_age_days', max(1, (int) post('detail_max_age_days')));
     set_setting('show_wantlist', post('show_wantlist') !== '');
     set_setting('show_selling', post('show_selling') !== '');
@@ -86,11 +85,6 @@ admin_header('Settings', 'How the site describes itself, what its header shows, 
       <div class="field">
         <label for="site_title">Title</label>
         <input type="text" id="site_title" name="site_title" value="<?= e(setting('site_title', DEFAULT_SITE_TITLE)) ?>">
-      </div>
-
-      <div class="field">
-        <label for="site_intro">Intro line</label>
-        <textarea id="site_intro" name="site_intro"><?= e(setting('site_intro', DEFAULT_SITE_INTRO)) ?></textarea>
       </div>
 
       <?= check_box('show_wantlist', (bool) setting('show_wantlist', true), 'Show the wantlist page on the site') ?>
