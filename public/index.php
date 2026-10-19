@@ -3,18 +3,21 @@
 require_once __DIR__ . '/../includes/bootstrap.php';
 
 $title = setting('site_title', DEFAULT_SITE_TITLE);
+$figures = hero_figures();
 
 $page = [
-    'title'   => "$title — Bruno's Vinyl",
-    'styles'  => ['floor', 'crate', 'morph', 'spotlight'],
-    'lead'    => hero_eyebrow(),
-    'heading' => $title,
-    'stats'   => hero_stats(hero_figures()),
-    'links'   => hero_links(null, true, 'Artist pages', true),
-    'platter' => hero_platter(),
-    'loading' => 'Loading the collection…',
-    'data'    => 'collection',
-    'scripts' => ['common', 'hero', 'controls', 'dropdown', 'tiles', 'shelf', 'spotlight-core', 'spotlight', 'crate', 'morph', 'script'],
+    'title'       => "$title — Bruno's Vinyl",
+    'description' => "Every LP, CD, DVD and Blu-ray in Bruno Vieira's music collection: {$figures['records']} "
+        . plural($figures['records'], 'record') . ', to browse by artist, era and format, synced from Discogs.',
+    'styles'      => ['floor', 'crate', 'morph', 'spotlight'],
+    'lead'        => hero_eyebrow(),
+    'heading'     => $title,
+    'stats'       => hero_stats($figures),
+    'links'       => hero_links(null, true, 'Artist pages', true),
+    'platter'     => hero_platter(),
+    'loading'     => 'Loading the collection…',
+    'data'        => 'collection',
+    'scripts'     => ['common', 'hero', 'controls', 'dropdown', 'tiles', 'shelf', 'spotlight-core', 'spotlight', 'crate', 'morph', 'script'],
 ];
 
 require __DIR__ . '/../includes/templates/public_top.php';
