@@ -30,9 +30,11 @@ const easeInOutCubic = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 
 const prefersReducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 async function fetchJSON(path) {
-  // The data version makes each change a new URL, so a cached response can't hide it.
+  // The data version makes each change a new URL, so the browser may keep an
+  // answer for good. A plain request, so the page's <link rel="preload"> of the
+  // same URL (api_url() in PHP) is the one used.
   const url = API_BASE + path + (path.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(DATA_VERSION);
-  const response = await fetch(url, { headers: { Accept: 'application/json' } });
+  const response = await fetch(url);
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
@@ -305,33 +307,16 @@ function wireDrawer() {
   if (initial !== null) openDrawer(initial, true);
 }
 
-/* ---------- The browser's copy of the data ----------
-   Used only while the page's data version matches the one it was saved
-   under, so a sync or an edit in the admin shows on the next visit. */
+/* ---------- The browser's old copies of the data ----------
+   The records used to be kept in localStorage too; the browser's own cache
+   does it now, by the data version in the URL. This clears what is left. */
 
-function loadCache(key, ttlMs) {
+function clearOldCaches() {
   try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return parsed.v !== DATA_VERSION || Date.now() - parsed.at > ttlMs ? null : parsed.data;
+    Object.keys(localStorage)
+      .filter(key => key.startsWith('vinyl_') && !key.includes('_prefs_'))
+      .forEach(key => localStorage.removeItem(key));
   } catch (error) {
-    return null;
-  }
-}
-
-function saveCache(key, data) {
-  try {
-    localStorage.setItem(key, JSON.stringify({ at: Date.now(), v: DATA_VERSION, data }));
-  } catch (error) {
-    /* storage full or unavailable: the page works without it */
-  }
-}
-
-function clearCache(key) {
-  try {
-    localStorage.removeItem(key);
-  } catch (error) {
-    /* ignore */
+    /* storage unavailable: nothing to clear */
   }
 }

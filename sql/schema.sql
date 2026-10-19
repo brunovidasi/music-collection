@@ -201,7 +201,7 @@ CREATE TABLE IF NOT EXISTS sync_runs (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     trigger_source      TEXT NOT NULL DEFAULT 'admin',        -- admin | cron | cli
     status              TEXT NOT NULL DEFAULT 'running',      -- running | ok | partial | error
-    phase               TEXT,                                 -- collection | wantlist | details | done
+    phase               TEXT,                                 -- collection | wantlist | details | covers | done
     started_at          TEXT NOT NULL DEFAULT (datetime('now')),
     finished_at         TEXT,
     collection_seen     INTEGER NOT NULL DEFAULT 0,

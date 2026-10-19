@@ -13,6 +13,7 @@ $page = [
     'links'   => hero_links(null, true, 'Artist pages', true),
     'platter' => hero_platter(),
     'loading' => 'Loading the collection…',
+    'data'    => 'collection',
     'scripts' => ['common', 'hero', 'controls', 'dropdown', 'tiles', 'shelf', 'spotlight-core', 'spotlight', 'crate', 'morph', 'script'],
 ];
 

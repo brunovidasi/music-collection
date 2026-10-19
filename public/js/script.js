@@ -6,8 +6,6 @@
  * search and the format chips, is a crate of vinyl, and is put away by
  * choosing Grid or List. */
 
-const CACHE_KEY = 'vinyl_collection_v5';
-const OLD_CACHE_KEYS = ['vinyl_collection_v4', 'vinyl_collection_cache_v3', 'vinyl_collection_cache_v2'];
 const VIEWS = ['floor', 'grid', 'list'];
 
 /* The sort menu and the list's column headers set the same sort. */
@@ -82,7 +80,10 @@ function renderError(message) {
       <p class="hint">If nothing has been synced from Discogs yet, the shelf is genuinely empty — run a sync from the admin.</p>
       <button class="ghost" id="retry">Try again</button>
     </div>`;
-  $('retry').addEventListener('click', () => init(true));
+  $('retry').addEventListener('click', () => {
+    $('content').innerHTML = '<div class="state loading"><p>Loading the collection…</p></div>';
+    init();
+  });
 }
 
 function renderEmpty(query) {
@@ -145,11 +146,13 @@ onToggle('viewToggle', 'view', view => {
     Crate.destroy();
   }
   // Floor and grid are the same records laid out two ways, so they are carried across.
+  finishBuilding();
   const before = Morph.capture($('content'));
   prefs.view = view;
   prefs.save();
   markToggle('viewToggle', 'view', view);
   render();
+  finishBuilding();
   Morph.play(before, $('content'));
 });
 
@@ -161,6 +164,7 @@ $('organiseBy').innerHTML = Object.entries(CRATE_ORDERS)
 
 $('crateBtn').addEventListener('click', () => {
   if (crateOn || Crate.busy || prefs.view !== 'floor') return;
+  finishBuilding();
   const before = prefs.fmt;
   setFormat('vinyl');
   const list = visibleItems();
@@ -192,13 +196,9 @@ $('digBtn').addEventListener('click', () => Crate.dig());
 
 /* ---------- Loading ---------- */
 
-async function init(force) {
-  $('content').innerHTML = '<div class="state"><p>Loading the collection…</p></div>';
-  $('countMeta').textContent = '';
-  OLD_CACHE_KEYS.forEach(clearCache);
-
+async function init() {
   try {
-    items = prepareItems(await loadData(CACHE_KEY, 'collection', { force, usable: cached => cached.length, keep: data => data.items }));
+    items = prepareItems((await loadData('collection')).items);
   } catch (error) {
     renderError(error.message);
     return;
@@ -215,4 +215,4 @@ $('organiseBy').value = prefs.organise;
 dropdown($('sort'));
 dropdown($('organiseBy'));
 markToggle('viewToggle', 'view', prefs.view);
-init(false);
+init();

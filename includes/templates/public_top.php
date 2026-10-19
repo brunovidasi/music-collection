@@ -3,7 +3,8 @@
  * The top of a public page, down to the end of the header.
  *
  * @var array $page title, description, styles, body (attributes), lead, heading,
- *                  intro (HTML, optional), stats, links, platter
+ *                  intro (HTML, optional), stats, links, platter, data (the API
+ *                  path the page loads first), scripts
  */
 ?>
 <!DOCTYPE html>
@@ -16,10 +17,18 @@
 <meta name="description" content="<?= e($page['description']) ?>">
 <?php endif; ?>
 <?php require __DIR__ . '/favicons.php'; ?>
+<link rel="preconnect" href="https://i.discogs.com">
+<?php if (isset($page['data'])): ?>
+<?php /* The records start downloading with the page, not after its scripts: the same URL fetchJSON() asks for. */ ?>
+<link rel="preload" href="<?= e(api_url($page['data'])) ?>" as="fetch" crossorigin>
+<?php endif; ?>
 <link rel="preload" href="<?= e(url('fonts/fraunces-latin.woff2')) ?>" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="<?= e(url('fonts/space-grotesk-latin.woff2')) ?>" as="font" type="font/woff2" crossorigin>
 <?php foreach ($page['styles'] as $style): ?>
 <link rel="stylesheet" href="<?= e(asset_url("css/$style.css")) ?>">
+<?php endforeach; ?>
+<?php foreach ($page['scripts'] as $script): ?>
+<script defer src="<?= e(asset_url("js/$script.js")) ?>"></script>
 <?php endforeach; ?>
 </head>
 <body data-api="<?= e(url('api/')) ?>" data-version="<?= e(data_version()) ?>"<?= $page['body'] ?? '' ?>>

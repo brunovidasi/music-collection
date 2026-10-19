@@ -9,6 +9,10 @@
 /data/*.sqlite-shm
 /data/*.log
 /data/*.log.1
+/data/cache/
+
+# The covers' small copies, made by the sync on each server (includes/covers.php).
+/public/covers/
 
 # Belt and braces: an instance directory should live outside the repo entirely,
 # but ignore it here too in case one is ever created inside by mistake.

@@ -5,7 +5,8 @@
  *
  * A run is a row in sync_runs that moves through three phases: the collection,
  * the wantlist, and each release's full detail (one API call per release,
- * against 60 a minute). sync_step() does one slice of work within a time
+ * against 60 a minute); then a fourth makes the covers' 320px copies
+ * (covers.php), which costs no API calls. sync_step() does one slice of work within a time
  * budget and returns, so the admin can poll it and cron can loop it; a run
  * that dies halfway carries on from where it stopped.
  *
@@ -19,6 +20,7 @@ const SYNC_PHASE_LABELS = [
     'collection' => 'Reading the collection…',
     'wantlist'   => 'Reading the wantlist…',
     'details'    => 'Fetching release details…',
+    'covers'     => 'Making small copies of the covers…',
     'done'       => 'Done.',
 ];
 
@@ -147,10 +149,20 @@ function sync_step(int $runId, float $budget = 15.0): array
             if ($pending === 0) {
                 assign_items_to_artists_and_eras();
                 sync_log($runId, 'Release details complete.');
-                sync_update($runId, ['phase' => 'done']);
-                sync_finish($runId, 'ok', 'Sync complete.');
+                sync_update($runId, ['phase' => 'covers']);
             } elseif ($fetched === 0) {
                 sync_log($runId, "Paused with $pending release(s) still to fetch.");
+            }
+        } elseif ($run['phase'] === 'covers') {
+            $missing = covers_missing();
+            $done = make_cover_mids($missing, $deadline);
+
+            // Every one tried: those that failed wait for the next sync rather than holding this one up.
+            if ($done['tried'] >= count($missing)) {
+                $failed = count($missing) - $done['made'];
+                sync_log($runId, "Covers: {$done['made']} small copies made" . ($failed ? ", $failed failed." : '.'));
+                sync_update($runId, ['phase' => 'done']);
+                sync_finish($runId, 'ok', 'Sync complete.');
             }
         }
     } catch (DiscogsException $e) {

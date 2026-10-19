@@ -27,6 +27,34 @@ function sleeveFallback(it) {
   return `linear-gradient(135deg,hsl(${hue} 40% 34%),hsl(${(hue + 40) % 360} 45% 16%))`;
 }
 
+/* The first few covers on the page are fetched at once and ahead of the rest:
+   they are the first on screen, and what the page is judged by. */
+let eagerCovers = 6;
+
+/** A picture's width from its Discogs address (…/w:600/…). */
+const urlWidth = (url, fallback) => Number((/\/w:(\d+)\//.exec(url) || [])[1]) || fallback;
+
+/**
+ * The sleeve's picture in every size there is (Discogs' 150px thumbnail, this
+ * site's 320px copy, Discogs' 600px image), for the browser to pick by how
+ * big the sleeve is drawn and how dense the screen is. `w` is the sleeve's
+ * width at full scale; a phone's floor draws it at 0.62 (css/floor.css).
+ */
+function sleeveImg(it, w) {
+  const src = w >= 200 ? (it.cover || it.thumb) : (it.thumb || it.cover); // big sleeves get the big image
+  if (!src) return '';
+
+  const sizes = [[it.thumb, urlWidth(it.thumb, 150)], [it.mid, 320], [it.cover, urlWidth(it.cover, 600)]]
+    .filter(([url]) => url)
+    .filter(([url, width], n, all) => all.findIndex(other => other[0] === url || other[1] === width) === n);
+  const srcset = sizes.length > 1
+    ? ` srcset="${sizes.map(([url, width]) => `${esc(url)} ${width}w`).join(', ')}" sizes="(max-width: 720px) ${Math.round(w * 0.62)}px, ${w}px"`
+    : '';
+  const load = eagerCovers > 0 && eagerCovers-- ? 'fetchpriority="high"' : 'loading="lazy"';
+
+  return `<img ${load} decoding="async" alt="" src="${esc(src)}"${srcset}>`;
+}
+
 function buildTile(it) {
   const [w, h] = dims(it);
   const hs = hash(String(it.id));
@@ -43,11 +71,10 @@ function buildTile(it) {
   t.style.setProperty('--x', ((((hs >>> 8) % 1000) / 500 - 1) * 18).toFixed(1));
   t.style.setProperty('--y', ((((hs >>> 14) % 1000) / 500 - 1) * 22).toFixed(1));
 
-  const src = w >= 200 ? (it.cover || it.thumb) : (it.thumb || it.cover); // big sleeves get the big image
-  t.innerHTML = `<div class="sleeve" style="--fb:${sleeveFallback(it)}">${src ? `<img loading="lazy" decoding="async" alt="" src="${esc(src)}">` : ''}</div>`;
+  t.innerHTML = `<div class="sleeve" style="--fb:${sleeveFallback(it)}">${sleeveImg(it, w)}</div>`;
   const img = t.querySelector('img');
   if (img) img.addEventListener('error', () => img.remove());
-  if (it.discs.length) discWatcher ? discWatcher.observe(t) : preloadDiscs(t);
+  if (it.discs.length) pageSettled.then(() => (discWatcher ? discWatcher.observe(t) : preloadDiscs(t)));
   return t;
 }
 
@@ -69,8 +96,15 @@ function discArt(it, d) {
 
 /* A disc's picture is a CSS background, fetched only when the disc is first
    drawn, just as it slides out. Fetching it as the tile nears the screen
-   leaves it in the cache by the time anyone hovers. */
+   leaves it in the cache by the time anyone hovers; that waits until the page
+   has loaded, so the discs never hold up the covers. */
 const preloaded = new Set();
+
+const pageSettled = new Promise(resolve => {
+  const later = () => ('requestIdleCallback' in window ? requestIdleCallback(resolve, { timeout: 2000 }) : setTimeout(resolve, 300));
+  if (document.readyState === 'complete') later();
+  else addEventListener('load', later, { once: true });
+});
 
 function preloadDiscs(t) {
   for (const d of t._it.discs) {
@@ -236,7 +270,7 @@ function listEl(list, { artist = true, sort, onSort } = {}) {
     document.querySelectorAll('.list')[at]?.querySelector(`.lsort[data-key="${button.dataset.key}"]`)?.focus({ preventScroll: true });
   });
 
-  list.forEach(it => {
+  buildInBatches(wrap, list, it => {
     const row = document.createElement('div');
     row.className = 'lrow';
     row.tabIndex = 0;
@@ -254,7 +288,7 @@ function listEl(list, { artist = true, sort, onSort } = {}) {
       <span class="ldetails" title="${esc(it.fmtRest)}">${esc(it.fmtRest)}</span>`;
     const img = row.querySelector('img');
     if (img) img.addEventListener('error', () => img.remove());
-    wrap.appendChild(row);
+    return row;
   });
   return wrap;
 }
@@ -367,6 +401,42 @@ function wireTiles(content, wantsLabel = () => true) {
   });
 }
 
+/* ---------- Drawing hundreds ----------
+   The first screenful of records is built at once and the rest a batch a
+   frame, so the page shows and answers sooner. A batch stops once its
+   container is gone (drawn over), and finishBuilding() builds whatever is
+   left at once, for what needs every record in place: the crate, the morph. */
+
+const FIRST_BATCH = 40;
+const BATCH = 60;
+const pendingBuilds = new Set();
+
+function buildInBatches(container, list, build) {
+  list.slice(0, FIRST_BATCH).forEach(it => container.appendChild(build(it)));
+  if (list.length <= FIRST_BATCH) return;
+
+  let at = FIRST_BATCH;
+  const step = all => {
+    if (!pendingBuilds.has(job)) return;
+    if (!container.isConnected) { pendingBuilds.delete(job); return; }
+    const end = all ? list.length : Math.min(list.length, at + BATCH);
+    const batch = document.createDocumentFragment();
+    for (; at < end; at++) batch.appendChild(build(list[at]));
+    container.appendChild(batch);
+    if (at < list.length && container.isConnected) next();
+    else pendingBuilds.delete(job);
+  };
+  const job = () => step(true);
+  const next = () => requestAnimationFrame(() => setTimeout(() => step(false)));
+
+  pendingBuilds.add(job);
+  next();
+}
+
+function finishBuilding() {
+  pendingBuilds.forEach(job => job());
+}
+
 /* ---------- Floor and grid ---------- */
 
 /** A pile on the floor: overlapping, tilted, scaled by the messiness slider. */
@@ -374,7 +444,7 @@ function floorEl(list, mess) {
   const floor = document.createElement('div');
   floor.className = 'floor';
   floor.style.setProperty('--mess', mess);
-  list.forEach(it => floor.appendChild(buildTile(it)));
+  buildInBatches(floor, list, buildTile);
   return floor;
 }
 
@@ -383,7 +453,7 @@ function gridEl(list) {
   const grid = document.createElement('div');
   grid.className = 'grid';
 
-  list.forEach(it => {
+  buildInBatches(grid, list, it => {
     const cell = document.createElement('div');
     cell.className = 'cell';
     cell._it = it;
@@ -401,7 +471,7 @@ function gridEl(list) {
       <span class="m"><i class="kc ${it.kind}">${KIND_LABEL[it.kind]}</i>${it.region ? `<span class="gregion" title="${esc(it.regionName)}">${esc(it.region)}</span>` : ''}${esc(it.year || '')}</span>`;
 
     cell.append(stage, cap);
-    grid.appendChild(cell);
+    return cell;
   });
 
   return grid;
@@ -428,19 +498,63 @@ function matchesQuery(it, query) {
   return words.every(word => it.hay.includes(word));
 }
 
-/** The API's cards, plus the short kind name the CSS uses, the case to draw, and a haystack to search. */
+/**
+ * The API's cards made whole: the fields it leaves out when they would repeat
+ * another (item_card() in PHP), the short kind name the CSS uses, the case to
+ * draw, and a haystack to search.
+ */
 function prepareItems(list) {
-  const cards = list.map(({ search, ...it }) => ({
-    ...it,
-    kind: it.k,
-    shape: it.case || it.k,
-    hay: fold([
-      it.title, it.artist, it.barcode, it.year || '', it.released, it.region, it.regionName,
-      KIND_LABEL[it.k], it.fmt, search,
-    ].join(' | ')),
-  }));
+  const cards = list.map(it => {
+    const card = {
+      cover: '', disc: '', box: false,
+      thumb: it.cover || '', regionName: it.region, released: it.date, fmt: it.fmtRest,
+      ...it,
+      kind: it.k,
+      shape: it.case || it.k,
+    };
+    card.hay = fold([
+      card.title, card.artist, card.barcode, card.year || '', card.released, card.region, card.regionName,
+      KIND_LABEL[card.k], card.fmt,
+    ].join(' | '));
+    addSearchText(card);
+    return card;
+  });
   cards.forEach(card => cardIndex.set(card.id, card));
   // A drawer opened from a link may be waiting for its record to arrive.
   if (typeof Spotlight !== 'undefined') Spotlight.adopt();
   return cards;
 }
+
+/* What the search box looks through beyond the cards (labels, tracklists,
+   credits, notes) is most of the records' weight, so it is a download of its
+   own, fetched the first time the box is used. A search typed before it
+   arrives is run again once it has. */
+
+let searchTexts = null;
+let searchLoading = null;
+
+function addSearchText(card) {
+  const text = searchTexts && searchTexts[card.id];
+  if (text) card.hay += ' | ' + fold(text);
+}
+
+function loadSearchTexts() {
+  searchLoading ??= fetchJSON('search')
+    .then(texts => {
+      searchTexts = texts;
+      cardIndex.forEach(addSearchText);
+      const box = document.getElementById('search');
+      if (box && box.value.trim()) box.dispatchEvent(new Event('input', { bubbles: true }));
+    })
+    .catch(() => { searchLoading = null; });
+}
+
+(() => {
+  const box = document.getElementById('search');
+  if (!box) return;
+  // Once loaded these do nothing; after a failed download, the next use tries again.
+  box.addEventListener('focus', loadSearchTexts);
+  box.addEventListener('input', loadSearchTexts);
+  // The back button can bring a typed search back with the page.
+  addEventListener('pageshow', () => { if (box.value.trim()) loadSearchTexts(); });
+})();

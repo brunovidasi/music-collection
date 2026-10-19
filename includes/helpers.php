@@ -78,22 +78,86 @@ function json_response(mixed $data, int $status = 200): never
     exit;
 }
 
-function json_cache_headers(int $seconds = 300): void
+/**
+ * A request carrying the current data version (?v=, as the pages send) can be
+ * kept for good: any change makes a new version, and so a new URL. Anything
+ * else is kept for five minutes.
+ */
+function json_cache_headers(): void
 {
-    header('Cache-Control: public, max-age=' . $seconds);
+    header('Cache-Control: ' . (query('v') === data_version()
+        ? 'public, max-age=31536000, immutable'
+        : 'public, max-age=300'));
+}
+
+/**
+ * An API answer built once per data version and then read from a file, since
+ * building hundreds of cards takes the server most of a second. The file goes
+ * in data/cache/, where a newer version replaces it.
+ */
+function cached_json_response(string $name, callable $build): never
+{
+    $name = preg_replace('/[^a-z0-9_-]+/i', '-', $name);
+    $dir = data_dir() . '/cache';
+    $file = "$dir/$name." . data_version() . '.json';
+
+    $json = is_file($file) ? @file_get_contents($file) : false;
+
+    if ($json === false) {
+        $json = json_encode($build(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        if (is_dir($dir) || @mkdir($dir, 0750, true)) {
+            foreach (glob("$dir/$name.*.json") ?: [] as $old) {
+                @unlink($old);
+            }
+            $temp = "$file." . getmypid() . '.tmp';
+            if (@file_put_contents($temp, $json) === false || !@rename($temp, $file)) {
+                @unlink($temp);
+            }
+        }
+    }
+
+    json_cache_headers();
+    header('Content-Type: application/json; charset=utf-8');
+    header('X-Content-Type-Options: nosniff');
+    echo $json;
+    exit;
 }
 
 /**
  * A short token that changes whenever what a visitor sees does: a sync, an
- * edit in the admin, or a change to how the cards are built. The pages put it
- * on every API request so the browser never serves a stale copy.
+ * edit in the admin, a setting, an artist or era, a new small cover, or a
+ * change to how the answers are built. The pages put it on every API request, so a cached answer
+ * is never a stale one.
  */
 function data_version(): string
 {
-    $latest = db()->query('SELECT MAX(updated_at) FROM items')->fetchColumn();
-    $shape = max(array_map(fn ($file) => (int) @filemtime(__DIR__ . "/$file"), ['items.php', 'discs.php']));
+    static $version = null;
 
-    return substr(md5(setting('last_successful_sync', '') . '|' . $latest . '|' . $shape), 0, 10);
+    if ($version !== null) {
+        return $version;
+    }
+
+    $db = db();
+    $parts = [
+        setting('last_successful_sync', ''),
+        $db->query('SELECT MAX(updated_at) FROM items')->fetchColumn(),
+        $db->query('SELECT MAX(updated_at) FROM releases')->fetchColumn(),
+        // The admin keeps its own list filters as settings; those change nothing public.
+        $db->query("SELECT MAX(updated_at) FROM settings WHERE key NOT LIKE 'admin\\_%' ESCAPE '\\'")->fetchColumn(),
+        // Neither table has an updated_at, and both are small.
+        md5(json_encode([
+            $db->query('SELECT * FROM artists ORDER BY id')->fetchAll(),
+            $db->query('SELECT * FROM eras ORDER BY id')->fetchAll(),
+        ])),
+        // The folder changes as covers' small copies are added to it, and the cards name them.
+        (int) @filemtime(covers_dir()),
+    ];
+
+    $code = [...glob(__DIR__ . '/*.php') ?: [], ...glob(__DIR__ . '/../public/api/*.php') ?: []];
+    $parts[] = max(array_map(fn ($file) => (int) @filemtime($file), $code));
+
+    return $version = substr(md5(implode('|', $parts)), 0, 10);
 }
 
 /* ---------- Text ---------- */

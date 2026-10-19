@@ -104,9 +104,41 @@ function item_cover(array $row): string
     return (string) ($row['cover_url'] ?: $row['cover_image'] ?: $row['thumb'] ?: '');
 }
 
+/** The small picture: Discogs' 150px one, of the chosen cover where one was picked. */
 function item_thumb(array $row): string
 {
-    return (string) ($row['cover_url'] ?: $row['thumb'] ?: $row['cover_image'] ?: '');
+    if ($row['cover_url']) {
+        return discogs_small_image((string) $row['cover_url'], $row) ?? (string) $row['cover_url'];
+    }
+
+    return (string) ($row['thumb'] ?: $row['cover_image'] ?: '');
+}
+
+/**
+ * The 150px version Discogs keeps of one of a release's pictures, or null. A
+ * disc from a box set has no release of its own, so its pictures are the box's.
+ */
+function discogs_small_image(string $url, array $row): ?string
+{
+    static $boxImages = [];
+
+    foreach (json_column($row['images_json'] ?? null) as $image) {
+        if (($image['uri'] ?? null) === $url && !empty($image['uri150'])) {
+            return (string) $image['uri150'];
+        }
+    }
+
+    $boxId = (int) ($row['parent_item_id'] ?? 0);
+    if ($boxId === 0) {
+        return null;
+    }
+
+    if (!array_key_exists($boxId, $boxImages)) {
+        $box = item_by_id($boxId);
+        $boxImages[$boxId] = $box ? ['images_json' => $box['images_json'], 'parent_item_id' => null] : null;
+    }
+
+    return $boxImages[$boxId] !== null ? discogs_small_image($url, $boxImages[$boxId]) : null;
 }
 
 /** "Artist · 2009", the line under a record's title in the admin. */
@@ -238,7 +270,12 @@ function tracklist_search_terms(array $tracks): array
     return $terms;
 }
 
-/** One sleeve on a shelf: only what drawing it needs. */
+/**
+ * One sleeve on a shelf: only what drawing it needs, since a shelf is hundreds
+ * of these. A field that would only repeat another is left out, and
+ * prepareItems() in js/tiles.js fills it back in; what the search box reads
+ * beyond these is api/search's.
+ */
 function item_card(array $row): array
 {
     $formats = item_formats($row);
@@ -249,8 +286,9 @@ function item_card(array $row): array
         [(string) ($first['descriptions'][0] ?? '')],
         [trim((string) ($first['text'] ?? ''))]
     ));
+    $cover = item_cover($row);
 
-    return [
+    $card = [
         'id'         => (int) $row['id'],
         'title'      => item_title($row),
         'artist'     => item_artist($row),
@@ -261,13 +299,13 @@ function item_card(array $row): array
         'barcode'    => strcasecmp($barcode, 'none') === 0 ? '' : $barcode,
         'region'     => region_for_list((string) ($row['region'] ?? ''), (string) ($row['country'] ?? '')),
         'regionName' => $region,
-        'search'     => item_search_text($row),
-        'cover'      => item_cover($row),
+        'cover'      => $cover,
         'thumb'      => item_thumb($row),
+        // The 320px copy made on this server (covers.php), once there is one.
+        'mid'        => cover_mid_url($cover),
         // One picture for every disc, on records not yet set disc by disc.
         'disc'       => disc_config($row)['set'] ? '' : (string) ($row['disc_url'] ?? ''),
         'added'      => (string) ($row['date_added'] ?? ''),
-        'kind'       => (string) $row['media_kind'],
         'k'          => $row['media_kind'] === 'bluray' ? 'bd' : (string) $row['media_kind'],
         // A DVD that came in a CD-sized jewel case is drawn in that case.
         'case'       => $row['media_kind'] === 'dvd' && $row['case_kind'] === 'cd' ? 'cd' : null,
@@ -275,11 +313,46 @@ function item_card(array $row): array
         'box'        => (bool) array_filter($formats, fn ($f) => ($f['name'] ?? '') === 'Box Set'),
         'fmt'        => implode(' · ', array_filter([$first['name'] ?? '', ...$extras])),
         'fmtRest'    => implode(' · ', $extras),
-        'type'       => (string) (item_field_value($row, $row, 'item_type') ?? ''),
-        'era'        => $row['era_id'] !== null ? (int) $row['era_id'] : null,
-        'rank'       => (int) $row['era_rank'],
-        'release'    => $row['discogs_id'] !== null ? (int) $row['discogs_id'] : null,
     ];
+
+    $repeats = [
+        'thumb'      => $card['cover'],
+        'regionName' => $card['region'],
+        'released'   => $card['date'],
+        'fmt'        => $card['fmtRest'],
+    ];
+    foreach ($repeats as $key => $same) {
+        if ($card[$key] === $same) {
+            unset($card[$key]);
+        }
+    }
+
+    return array_filter($card, fn ($value, $key) => !in_array($key, ['mid', 'disc', 'case', 'box'], true) || $value, ARRAY_FILTER_USE_BOTH);
+}
+
+/**
+ * What the search box looks through beyond the cards, for every record a
+ * visitor can see, by id. The pages fetch it the first time the box is used.
+ */
+function public_search_texts(): array
+{
+    $rows = public_items('collection');
+    if (setting('show_wantlist', true)) {
+        array_push($rows, ...public_items('wantlist'), ...public_items('searching'));
+    }
+    if (setting('show_selling', true)) {
+        array_push($rows, ...public_items('for_sale', ['i.sold_at IS NULL']));
+    }
+
+    $texts = [];
+    foreach ($rows as $row) {
+        $text = item_search_text($row);
+        if ($text !== '') {
+            $texts[(int) $row['id']] = $text;
+        }
+    }
+
+    return $texts;
 }
 
 /* ---------- Selling ---------- */

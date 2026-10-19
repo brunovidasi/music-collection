@@ -52,6 +52,11 @@ function update_item(int $id, array $values, array $expressions = []): void
     $sets[] = "updated_at = datetime('now')";
 
     db()->prepare('UPDATE items SET ' . implode(', ', $sets) . ' WHERE id = ?')->execute([...$params, $id]);
+
+    // A cover picked here gets its small copy now rather than at the next sync.
+    if (!empty($values['cover_url'])) {
+        make_cover_mid((string) $values['cover_url']);
+    }
 }
 
 /** The posted corrections to Discogs' facts; an empty box goes back to Discogs'. */

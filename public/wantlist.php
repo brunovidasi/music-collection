@@ -19,6 +19,7 @@ $page = [
     'intro'       => "$count records that aren't on the shelf yet.",
     'links'       => hero_links(null, false, 'Artist pages', true),
     'platter'     => hero_platter('sleeve'),
+    'data'        => 'wantlist',
     'scripts'     => ['common', 'hero', 'controls', 'tiles', 'shelf', 'spotlight-core', 'spotlight', 'wantlist'],
 ];
 

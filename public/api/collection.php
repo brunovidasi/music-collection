@@ -2,12 +2,12 @@
 
 require_once __DIR__ . '/../../includes/bootstrap.php';
 
-json_cache_headers();
+cached_json_response('collection', function () {
+    $rows = public_items('collection');
 
-$rows = public_items('collection');
-
-json_response([
-    'updated' => setting('last_successful_sync'),
-    'count'   => count($rows),
-    'items'   => array_map('item_card', $rows),
-]);
+    return [
+        'updated' => setting('last_successful_sync'),
+        'count'   => count($rows),
+        'items'   => array_map('item_card', $rows),
+    ];
+});

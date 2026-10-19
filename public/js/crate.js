@@ -541,6 +541,7 @@ const Crate = (() => {
     old.classList.add('over');
     content.classList.add('crating');
     content.insertBefore(floor, old);
+    finishBuilding();
 
     const flyers = takeOff(floor, 'out', mess);
 

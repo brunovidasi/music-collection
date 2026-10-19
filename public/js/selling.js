@@ -2,7 +2,6 @@
  * buyer wants a cover, a price and a link to buy. Clicking a card (off the
  * eBay link) opens the drawer with the shop's spotlight. */
 
-const CACHE_KEY = 'vinyl_selling_v1';
 const VIEWS = ['grid', 'list'];
 
 let items = [];
@@ -123,7 +122,7 @@ function render() {
 
 async function init() {
   try {
-    items = prepareItems((await loadData(CACHE_KEY, 'selling')).items);
+    items = prepareItems((await loadData('selling')).items);
   } catch (error) {
     $('content').innerHTML = `<div class="state"><h2>This didn't load</h2><p>${esc(error.message)}</p></div>`;
     return;

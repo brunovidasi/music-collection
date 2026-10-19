@@ -34,6 +34,32 @@ The front end no longer calls Discogs at all. It reads `api/collection`,
 to show Bruno's notes, his chosen cover, and only the fields he ticked in
 **Drawer fields**.
 
+### Keeping the pages fast
+
+A shelf is hundreds of records on a phone over a slow connection, so:
+
+- **The cards are lean.** `item_card()` sends only what drawing a sleeve needs
+  and leaves out a field that would repeat another (`prepareItems()` in
+  `js/tiles.js` fills it back in). What the search box looks through beyond
+  them — labels, tracklists, credits, notes, most of the weight — is
+  `api/search`, fetched the first time the box is used.
+- **Answers are built once per data version.** `data_version()` changes with
+  every sync, admin edit, setting, artist, era or new small cover;
+  `cached_json_response()` keeps each API answer in `data/cache/` under it, and
+  a request carrying the current `?v=` (as the pages send) may be cached by the
+  browser for good. Each page also preloads its records' URL in the `<head>`,
+  so they download alongside the scripts rather than after them.
+- **Covers come in three sizes.** Discogs has a 150px thumbnail and a 600px
+  image; the sync's last phase makes a 320px WebP of every cover in
+  `public/covers/` (`includes/covers.php`), and a sleeve offers all three as a
+  `srcset` for the browser to choose. The first few covers load eagerly and
+  first; the discs' pictures wait until the page has loaded.
+- **Hundreds of tiles are built in batches**: the first screenful at once, the
+  rest a frame at a time (`buildInBatches()`).
+- **The deploy minifies** `public/css` and `public/js` (esbuild, in the Action);
+  the repo keeps them readable. `.htaccess` lets a browser keep any `?v=`
+  stylesheet or script, and the covers' copies, for a year.
+
 A box set is one release on Discogs, but its discs can each be a record of their
 own (`items.parent_item_id` names the box). Such a disc has no Discogs release; its
 title, tracklist, cover and the rest are copied from the box's release into the
@@ -93,13 +119,17 @@ do on the server.
 
 ## Syncing
 
-A sync has three phases, and it is restartable at every point:
+A sync has four phases, and it is restartable at every point:
 
 1. **Collection** — the copies, 100 per call. A few calls in all.
 2. **Wantlist** — the same, for what Bruno wants.
 3. **Details** — tracklist, images, identifiers, barcode. **One HTTP call per
    release**, against 60 a minute. A 500-record collection is therefore a
    ~10-minute first sync.
+4. **Covers** — a 320px copy of every cover that hasn't one, downloaded from
+   Discogs' image server (no API calls) six at a time. About a minute the first
+   time, nothing after. A cover picked in the admin gets its copy on save, and
+   `php cron/sync.php --covers` makes any missing ones without syncing.
 
 Because of phase 3, nothing tries to do it all in one web request:
 
@@ -240,6 +270,7 @@ includes/
   regions.php          two-letter region codes for the lists
   discs.php            the discs in a sleeve: count, colours, pictures
   items.php            rows -> the cards the shelves draw
+  covers.php           the covers' 320px copies, made by the sync
   drawer.php           rows -> the drawer's facts and sections
   hero.php             the header every public page shares
   DiscogsClient.php    the API, throttled (writes are stubbed, see below)
@@ -255,7 +286,8 @@ public/
   selling.php          what's for sale
   admin*.php           the admin
   cron_sync.php        the token-protected daily trigger
-  api/                 collection, artist, item, wantlist, selling (JSON)
+  api/                 collection, artist, item, wantlist, selling, search (JSON)
+  covers/              the covers' 320px copies (made on the server, gitignored)
   css/floor.css        the wooden floor and the objects on it — every public page
   css/artist.css       the era spine, layered on floor.css
   js/common.js         API + drawer, shared by every public page

@@ -68,9 +68,10 @@ const Spotlight = (() => {
     const img = t.querySelector('img');
     if (img) {
       img.loading = 'eager';
-      if (it.cover && img.getAttribute('src') !== it.cover) {
+      // The shelf's sizes stay until the full cover is in, then give way to it.
+      if (it.cover && (img.getAttribute('src') !== it.cover || img.hasAttribute('srcset'))) {
         const big = new Image();
-        big.onload = () => { img.src = it.cover; };
+        big.onload = () => { img.removeAttribute('srcset'); img.src = it.cover; };
         big.src = it.cover;
       }
     }
@@ -154,6 +155,7 @@ const Spotlight = (() => {
         img.alt = '';
         sleeve.prepend(img);
       }
+      img.removeAttribute('srcset');
       img.src = url;
     },
   });

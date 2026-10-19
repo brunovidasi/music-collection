@@ -1,8 +1,6 @@
 /* What the public pages' own scripts share: their stored preferences, the
  * format chips, the toggle buttons and loading their records. */
 
-const CACHE_TTL = 1000 * 60 * 60 * 6;
-
 /** Preferences kept in localStorage; `fix` corrects stored values that are no longer valid. prefs.save() writes them back. */
 function storedPrefs(key, defaults, fix = prefs => prefs) {
   let prefs;
@@ -21,16 +19,10 @@ function storedPrefs(key, defaults, fix = prefs => prefs) {
   return prefs;
 }
 
-/** The page's data from the browser's cache while it is fresh and `usable`, else from the API (and cached). */
-async function loadData(cacheKey, path, { force = false, usable = Boolean, keep = data => data } = {}) {
-  if (!force) {
-    const cached = loadCache(cacheKey, CACHE_TTL);
-    if (cached && usable(cached)) return cached;
-  }
-
-  const data = await fetchJSON(path);
-  saveCache(cacheKey, keep(data));
-  return keep(data);
+/** The page's records from the API: the preloaded answer on a first visit, the browser's cached one after. */
+function loadData(path) {
+  clearOldCaches();
+  return fetchJSON(path);
 }
 
 /** body.view-floor, view-grid or view-list, for the stylesheet. */

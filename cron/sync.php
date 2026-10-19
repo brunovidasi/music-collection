@@ -6,6 +6,7 @@
  *   17 4 * * * /usr/local/bin/php /path/to/cron/sync.php >> /path/to/data/sync.log 2>&1
  *
  * Also handy by hand: php cron/sync.php --budget=120
+ *                     php cron/sync.php --covers
  */
 
 require_once __DIR__ . '/../includes/bootstrap.php';
@@ -17,7 +18,7 @@ if (PHP_SAPI !== 'cli') {
 
 set_time_limit(0);
 
-$options = getopt('', ['budget::', 'help']);
+$options = getopt('', ['budget::', 'covers', 'help']);
 
 if (isset($options['help'])) {
     fwrite(STDOUT, <<<TEXT
@@ -25,6 +26,8 @@ if (isset($options['help'])) {
 
       --budget=SECONDS   stop after this long (default 900). The run resumes on
                          the next pass, so a short budget is safe.
+      --covers           only make the covers' missing 320px copies, with no
+                         Discogs calls (a sync's last phase does the same).
 
     TEXT);
     exit(0);
@@ -33,6 +36,14 @@ if (isset($options['help'])) {
 $log = function (string $message): void {
     fwrite(STDOUT, '[' . date('Y-m-d H:i:s') . "] $message\n");
 };
+
+if (isset($options['covers'])) {
+    $missing = covers_missing();
+    $log(count($missing) . ' covers without a small copy.');
+    $done = make_cover_mids($missing, microtime(true) + (float) ($options['budget'] ?? 900));
+    $log("Made {$done['made']} of the {$done['tried']} tried.");
+    exit(0);
+}
 
 $state = run_full_sync('cli', $log, (float) ($options['budget'] ?? 900));
 

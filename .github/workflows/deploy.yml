@@ -20,6 +20,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # The stylesheets and scripts go up minified; the repo keeps them
+      # readable. Each file is minified on its own, not bundled: the pages load
+      # them as separate files whose top-level names they share, and esbuild
+      # leaves top-level names alone when it isn't bundling.
+      - name: Minify CSS and JS
+        run: npx --yes esbuild@0.25.0 public/css/*.css public/js/*.js --minify --outdir=public --outbase=public --allow-overwrite --log-level=warning
+
       # FTP_SERVER_DIR (a repository variable) is only needed for an FTP account
       # whose root is not the hosting account's: one locked to the music folder
       # uses ./

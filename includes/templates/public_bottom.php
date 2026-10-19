@@ -1,19 +1,20 @@
 <?php
 /**
  * The rest of a public page after its controls: the format chips, the records,
- * the footer, the drawer and the scripts.
+ * the footer and the drawer. The scripts are in the head, deferred.
  *
- * @var array $page loading (text), tip (bool), scripts
+ * @var array $page loading (text), tip (bool)
  */
 ?>
 <div class="filters">
-  <div class="chips" id="formats" role="group" aria-label="Filter by format"></div>
-  <span class="meta" id="countMeta"></span>
+  <?php /* An unseen chip and line hold the room the real ones take when the records arrive, so nothing below jumps. */ ?>
+  <div class="chips" id="formats" role="group" aria-label="Filter by format"><button type="button" class="chip-hold" tabindex="-1" aria-hidden="true">All <i>0</i></button></div>
+  <span class="meta" id="countMeta">&nbsp;</span>
 </div>
 
 <main>
   <div id="content">
-    <div class="state"><p><?= e($page['loading'] ?? 'Loading…') ?></p></div>
+    <div class="state loading"><p><?= e($page['loading'] ?? 'Loading…') ?></p></div>
   </div>
 </main>
 
@@ -31,10 +32,6 @@
   <div class="drawer-cover" id="drawerCover"></div>
   <div class="drawer-body" id="drawerBody"></div>
 </aside>
-
-<?php foreach ($page['scripts'] as $script): ?>
-<script src="<?= e(asset_url("js/$script.js")) ?>"></script>
-<?php endforeach; ?>
 
 </body>
 </html>

@@ -21,6 +21,7 @@ $page = [
     'links'       => hero_links((int) $artist['id'], false, 'Other artists', true),
     'platter'     => hero_platter('record', $accent),
     'loading'     => 'Loading the collection…',
+    'data'        => 'artist?slug=' . rawurlencode($artist['slug']),
     'scripts'     => ['common', 'hero', 'controls', 'tiles', 'shelf', 'spotlight-core', 'spotlight', 'artist'],
 ];
 

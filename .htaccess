@@ -69,6 +69,14 @@ ErrorDocument 500 /music/500
     Header always set X-Content-Type-Options "nosniff"
     Header always set X-Frame-Options "DENY"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+    # The pages link stylesheets and scripts as file.css?v=<its mtime>
+    # (asset_url()), so a changed file is a new URL and a browser may keep each
+    # one for good. Without the ?v= the host's own caching stands. The covers'
+    # small copies are named after the picture they were made from
+    # (includes/covers.php), so one never changes once written. Only ever on a
+    # file actually served: never on a redirect or an error page.
+    Header always set Cache-Control "public, max-age=31536000, immutable" "expr=%{REQUEST_STATUS} -in {'200', '304'} && ((%{REQUEST_URI} =~ /\.(css|js)$/ && %{QUERY_STRING} =~ /(^|&)v=/) || %{REQUEST_URI} =~ m#/covers/[0-9a-f]+-\d+\.(webp|jpg)$#)"
 </IfModule>
 
 # The database is never downloadable, even without mod_rewrite. data/ has its own deny-all too.

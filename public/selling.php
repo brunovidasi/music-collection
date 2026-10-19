@@ -20,6 +20,7 @@ $page = [
     'links'       => hero_links(null, true),
     'platter'     => hero_platter('sleeve'),
     'tip'         => false,
+    'data'        => 'selling',
     'scripts'     => ['common', 'hero', 'controls', 'dropdown', 'tiles', 'shelf', 'spotlight-core', 'sale-spotlight', 'selling'],
 ];
 

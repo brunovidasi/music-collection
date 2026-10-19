@@ -125,6 +125,12 @@ function asset_url(string $path): string
     return url($path) . '?v=' . $mtime;
 }
 
+/** An API request as the pages make it, with the data version: api_url('collection') -> '/music/api/collection?v=…' */
+function api_url(string $path): string
+{
+    return url('api/' . $path) . (str_contains($path, '?') ? '&' : '?') . 'v=' . rawurlencode(data_version());
+}
+
 function is_debug(): bool
 {
     return (bool) (env_config()['debug'] ?? !is_production());

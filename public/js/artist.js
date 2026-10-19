@@ -3,7 +3,6 @@
  * added in the admin shows up here without any code. */
 
 const SLUG = document.body.dataset.slug;
-const CACHE_KEY = `vinyl_artist_${SLUG}_v4`;
 const VIEWS = ['grid', 'list'];
 const ORDERS = ['oldest', 'newest'];
 
@@ -53,7 +52,7 @@ function renderError(message) {
       <h2>This page didn't load</h2>
       <p>${esc(message)}</p>
       <button class="ghost" id="retry">Try again</button>`);
-  $('retry').addEventListener('click', () => init(true));
+  $('retry').addEventListener('click', () => init());
 }
 
 function renderEmpty(query) {
@@ -242,15 +241,10 @@ function setSections(data) {
   renderChips();
 }
 
-async function init(force) {
-  $('countMeta').textContent = '';
-
+async function init() {
   let data;
   try {
-    data = await loadData(CACHE_KEY, `artist?slug=${encodeURIComponent(SLUG)}`, {
-      force,
-      usable: cached => cached.count || (cached.wanted || []).length,
-    });
+    data = await loadData(`artist?slug=${encodeURIComponent(SLUG)}`);
   } catch (error) {
     renderError(error.message);
     return;
@@ -267,4 +261,4 @@ async function init(force) {
 
 markToggle('viewToggle', 'view', prefs.view);
 markToggle('orderToggle', 'order', prefs.order);
-init(false);
+init();

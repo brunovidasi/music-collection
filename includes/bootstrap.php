@@ -11,6 +11,7 @@ require_once __DIR__ . '/fields.php';
 require_once __DIR__ . '/regions.php';
 require_once __DIR__ . '/discs.php';
 require_once __DIR__ . '/items.php';
+require_once __DIR__ . '/covers.php';
 require_once __DIR__ . '/drawer.php';
 require_once __DIR__ . '/hero.php';
 require_once __DIR__ . '/DiscogsClient.php';

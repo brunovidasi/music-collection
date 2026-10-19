@@ -1,7 +1,6 @@
 /* What isn't on the shelf yet, drawn like what is: the Discogs wantlist, and
  * the records being hunted that Discogs has no page for. */
 
-const CACHE_KEY = 'vinyl_wantlist_v2';
 const VIEWS = ['floor', 'grid', 'list'];
 
 let sections = [];
@@ -98,7 +97,7 @@ function setData(data) {
 
 async function init() {
   try {
-    setData(await loadData(CACHE_KEY, 'wantlist'));
+    setData(await loadData('wantlist'));
   } catch (error) {
     $('content').innerHTML = `<div class="state"><h2>This didn't load</h2><p>${esc(error.message)}</p></div>`;
     return;
