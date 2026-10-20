@@ -64,9 +64,9 @@ jobs:
         run: |
           rsync -rlz --checksum --delete --itemize-changes $DRY_RUN \
             --exclude='.git*' --exclude='/.github/' --exclude='node_modules/' \
-            --filter='P /public/covers/' \
-            --filter='P /.well-known/' \
-            --filter='P /cgi-bin/' \
+            --filter='P /public/covers/***' \
+            --filter='P /.well-known/***' \
+            --filter='P /cgi-bin/***' \
             --filter='P /.user.ini' \
             --filter='P error_log' \
             -e "ssh -i $HOME/.ssh/deploy_key -p $SSH_PORT -o IdentitiesOnly=yes -o BatchMode=yes" \
