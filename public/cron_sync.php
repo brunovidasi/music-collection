@@ -3,7 +3,7 @@
 /**
  * The daily sync over HTTPS, for any scheduler that can fetch a URL:
  *
- *   https://brunovida.si/music/cron_sync.php?token=…
+ *   https://music.brunovidasi.com/cron_sync.php?token=…
  *
  * Closed unless the config has a cron_token, since a sync spends real API
  * calls. It answers at once and keeps working after the caller hangs up.

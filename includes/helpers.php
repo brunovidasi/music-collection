@@ -33,7 +33,7 @@ function nullable(string $value): ?string
     return $value === '' ? null : $value;
 }
 
-/** Takes a page name ('admin_items?x=1') or a path already under the app ('/music/admin'). */
+/** Takes a page name ('admin_items?x=1') or a path already under the app ('/admin'). */
 function redirect(string $path): never
 {
     $isAbsolute = str_starts_with($path, 'http') || str_starts_with($path, app_path());

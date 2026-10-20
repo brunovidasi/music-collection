@@ -3,14 +3,16 @@
 Bruno's records, CDs, DVDs and Blu-rays — a public site built on his own copy of
 the Discogs data, with an admin behind it for everything Discogs doesn't know.
 
-- **The shelf** — `/music/` — the whole collection as a pile on the
+It lives at `https://music.brunovidasi.com`.
+
+- **The shelf** — `/` — the whole collection as a pile on the
   floor, a grid or a list. On the floor, **Organise vinyls on a crate** throws
   the pile into a wooden crate to flip through, by artist, release year, title,
   format, region or when it was added; **Back to the mess** tips it out again.
-- **Artist pages** — `/music/lady-gaga`, `/beyonce`, `/anitta`,
+- **Artist pages** — `/lady-gaga`, `/beyonce`, `/anitta`,
   `/rbd` — one page per artist, split into eras, each era split by format.
-- **Wantlist** — `/music/wantlist` — what isn't on the shelf yet.
-- **Admin** — `/music/admin` — one account, Bruno's.
+- **Wantlist** — `/wantlist` — what isn't on the shelf yet.
+- **Admin** — `/admin` — one account, Bruno's.
 
 ## How it works
 
@@ -151,7 +153,7 @@ short.
 The dashboard shows the URL with the token already in it:
 
 ```
-https://brunovida.si/music/cron_sync.php?token=…
+https://music.brunovidasi.com/cron_sync.php?token=…
 ```
 
 Set `cron_token` in the config to enable it (`php -r "echo bin2hex(random_bytes(24));"`).
@@ -162,7 +164,7 @@ Point any scheduler at it once a day. If the host's cron can run PHP directly,
 use that instead and skip HTTP entirely:
 
 ```
-17 4 * * * /usr/local/bin/php /path/to/cron/sync.php >> /path/to/data/sync.log 2>&1
+17 4 * * * php /home/brunovidasi/music.brunovidasi.com/cron/sync.php >> /home/brunovidasi/music-instance/data/sync.log 2>&1
 ```
 
 ### What a sync will never do
@@ -209,26 +211,33 @@ wrong address takes exactly as long to answer as a wrong password.
 
 ## Deployment
 
-This repo deploys itself: every push to `main` runs its FTP Action
-(`.github/workflows/deploy.yml`) to `public_html/music`, i.e.
-`brunovida.si/music`, uploading only what changed. The `brunovidasi.com` repo
-leaves `music/` out of its own deploy (`music/**` in its `exclude`), so neither
-deploy uploads or deletes the other's files. The Action needs the `FTP_SERVER`,
-`FTP_USERNAME` and `FTP_PASSWORD` secrets; an FTP account whose root is the
-music folder itself also needs the `FTP_SERVER_DIR` variable, set to `./`. It
-only ever deletes files it uploaded, so anything put there by hand stays.
-Only `public/` is web-reachable: `.htaccess` maps every request into it, and
-`config/`, `includes/`, `cron/`, `sql/` and `data/` each carry a deny-all
+The site is on Namecheap shared hosting (cPanel). Its document root is this
+repo's tree, `/home/brunovidasi/music.brunovidasi.com`. `music.brunovida.si` is
+the same folder and redirects to it (`.htaccess`), as `brunovida.si/music/…`,
+the old address, does from the `brunovidasi.com` repo.
+
+This repo deploys itself: every push to `main` runs
+`.github/workflows/deploy.yml`, which rsyncs the tree over SSH (port 21098),
+sending only what changed. A file deleted from the repo is deleted on the server
+too, except what only lives there (the covers' small copies in `public/covers/`,
+the certificate checks, PHP's error logs), which the workflow protects. Run by
+hand from the Actions tab, it is a dry run by default: it lists what it would
+change and changes nothing. It needs the `SSH_HOST`, `SSH_PORT`, `SSH_USER`,
+`SSH_KEY` (a deploy key authorised in cPanel → SSH Access) and
+`SSH_KNOWN_HOSTS` secrets; the `SSH_TARGET_DIR` variable sends it to another
+folder. Only `public/` is web-reachable: `.htaccess` maps every request into it,
+and `config/`, `includes/`, `cron/`, `sql/` and `data/` each carry a deny-all
 `.htaccess` as well.
 
 ### The instance directory
 
 **Do not put `config/config.php` on the server.** The repo is public and the
-deployed folder sits under `public_html`. Instead create, *above* `public_html`:
+deployed folder is web-reachable. Instead create, in the account's home, outside
+every web root:
 
 ```
-/home/<user>/domains/<domain>/music-instance/config.php   <- the real config
-/home/<user>/domains/<domain>/music-instance/data/        <- the SQLite database
+/home/brunovidasi/music-instance/config.php   <- the real config
+/home/brunovidasi/music-instance/data/        <- the SQLite database
 ```
 
 The app walks up the tree looking for a directory named `music-instance`, so no
@@ -238,13 +247,13 @@ deploy.
 
 ### First deploy
 
-1. Push to `main`; this repo's GitHub Action FTPs the tree up.
+1. Push to `main`; this repo's GitHub Action rsyncs the tree up.
 2. Create `music-instance/config.php` with `'env' => 'production'`, the Discogs
    token, `owner_email` and a `cron_token`.
 3. Either upload the dev SQLite database as `music-instance/data/collection.production.sqlite`
    to carry over everything already synced locally, or leave `data/` empty and let
-   `/music/setup` + a first sync build it fresh on the server.
-4. Open `/music/setup` and create the account (skip this if you uploaded the dev
+   `/setup` + a first sync build it fresh on the server.
+4. Open `/setup` and create the account (skip this if you uploaded the dev
    database — the account already exists in it).
 5. Sync from the dashboard (the first one takes a while — see above), or skip it
    if you uploaded a database that's already synced.

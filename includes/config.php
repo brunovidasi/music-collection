@@ -103,7 +103,7 @@ function base_url(): string
     return rtrim(env_config()['base_url'], '/');
 }
 
-/** The URL path the app is mounted at: '/music/' in production, '/' locally. */
+/** The URL path the app is mounted at: '/' on music.brunovidasi.com and locally. */
 function app_path(): string
 {
     $path = parse_url(base_url(), PHP_URL_PATH);
@@ -111,7 +111,7 @@ function app_path(): string
     return $path ? rtrim($path, '/') . '/' : '/';
 }
 
-/** url('admin') -> '/music/admin' */
+/** url('admin') -> '/admin' */
 function url(string $path = ''): string
 {
     return app_path() . ltrim($path, '/');
@@ -125,7 +125,7 @@ function asset_url(string $path): string
     return url($path) . '?v=' . $mtime;
 }
 
-/** An API request as the pages make it, with the data version: api_url('collection') -> '/music/api/collection?v=…' */
+/** An API request as the pages make it, with the data version: api_url('collection') -> '/api/collection?v=…' */
 function api_url(string $path): string
 {
     return url('api/' . $path) . (str_contains($path, '?') ? '&' : '?') . 'v=' . rawurlencode(data_version());
