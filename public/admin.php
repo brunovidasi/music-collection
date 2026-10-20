@@ -105,7 +105,7 @@ admin_header('Dashboard', 'Everything on the shelf, as the site sees it.');
       <tr><td>API token</td><td class="right"><?= state_pill($client->hasToken(), 'set', 'missing') ?></td></tr>
       <tr><td>Environment</td><td class="right"><?= e(app_env()) ?></td></tr>
       <tr><td>Config file</td><td class="right path"><?= e(config_path()) ?></td></tr>
-      <tr><td>Database</td><td class="right path"><?= e(db_path()) ?></td></tr>
+      <tr><td>Database</td><td class="right path"><?= e(db_config()['name']) ?></td></tr>
       <tr><td>Last successful sync</td><td class="right"><?= e(time_ago(setting('last_successful_sync'))) ?></td></tr>
     </tbody>
   </table>

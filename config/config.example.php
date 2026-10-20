@@ -11,7 +11,7 @@
  * outside every web root:
  *
  *   /home/<user>/music-instance/config.php   <- this file's contents
- *   /home/<user>/music-instance/data/        <- SQLite database
+ *   /home/<user>/music-instance/data/        <- caches and logs
  *
  * The app walks up the directory tree to find it, so no absolute server path is
  * ever hardcoded in the repo. The admin dashboard's "Where things are" card
@@ -67,13 +67,15 @@ return [
             // Relative paths resolve against the project root locally, or the
             // instance directory on the server. Leave null for the default.
             'data_dir' => null,
-            'db_file'  => 'collection.development.sqlite',
+            // The MySQL / MariaDB database, one per environment (sql/schema.sql
+            // creates its tables on the first request).
+            'db'       => ['host' => '127.0.0.1', 'port' => 3306, 'name' => 'music_development', 'user' => 'root', 'pass' => ''],
         ],
         'production' => [
             'base_url' => 'https://music.brunovidasi.com',
             'debug'    => false,
             'data_dir' => null,
-            'db_file'  => 'collection.production.sqlite',
+            'db'       => ['host' => 'localhost', 'name' => '', 'user' => '', 'pass' => ''],
         ],
     ],
 ];

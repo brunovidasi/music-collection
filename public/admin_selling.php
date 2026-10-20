@@ -4,7 +4,7 @@ require_once __DIR__ . '/../includes/admin.php';
 
 require_login();
 
-$rows = items_query("WHERE i.source = 'for_sale' ORDER BY i.created_at DESC");
+$rows = items_query("WHERE i.source = 'for_sale' ORDER BY i.created_at DESC, i.id");
 
 $forSale = count(array_filter($rows, fn ($r) => $r['is_visible'] && $r['sold_at'] === null));
 $sold = count(array_filter($rows, fn ($r) => $r['sold_at'] !== null));

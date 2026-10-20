@@ -55,9 +55,9 @@ function sync_start(string $trigger = 'admin'): int
     // Only one run at a time; one left 'running' for an hour has crashed.
     db()->exec("
         UPDATE sync_runs
-           SET status = 'error', finished_at = datetime('now'),
+           SET status = 'error', finished_at = UTC_TIMESTAMP(),
                message = COALESCE(message, 'Abandoned — the run stopped without finishing.')
-         WHERE status = 'running' AND started_at < datetime('now', '-1 hour')
+         WHERE status = 'running' AND started_at < UTC_TIMESTAMP() - INTERVAL 1 HOUR
     ");
 
     $running = db()->query("SELECT id FROM sync_runs WHERE status = 'running' ORDER BY id DESC LIMIT 1")->fetchColumn();
@@ -98,13 +98,13 @@ function sync_update(int $runId, array $columns): void
 
 function sync_log(int $runId, string $message): void
 {
-    db()->prepare("UPDATE sync_runs SET log = COALESCE(log, '') || ? WHERE id = ?")
+    db()->prepare("UPDATE sync_runs SET log = CONCAT(COALESCE(log, ''), ?) WHERE id = ?")
         ->execute(['[' . date('H:i:s') . '] ' . $message . "\n", $runId]);
 }
 
 function sync_finish(int $runId, string $status, ?string $message = null): void
 {
-    db()->prepare("UPDATE sync_runs SET status = ?, message = ?, finished_at = datetime('now') WHERE id = ?")
+    db()->prepare("UPDATE sync_runs SET status = ?, message = ?, finished_at = UTC_TIMESTAMP() WHERE id = ?")
         ->execute([$status, $message, $runId]);
 
     if ($status === 'ok') {
@@ -328,23 +328,23 @@ function upsert_release_basic(array $basic): void
             discogs_id, master_id, title, artists_text, primary_artist, artists_json, year,
             labels_json, formats_json, formats_text, genres_json, styles_json, thumb, cover_image,
             basic_synced_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-        ON CONFLICT(discogs_id) DO UPDATE SET
-            master_id       = excluded.master_id,
-            title           = excluded.title,
-            artists_text    = excluded.artists_text,
-            primary_artist  = excluded.primary_artist,
-            artists_json    = excluded.artists_json,
-            year            = excluded.year,
-            labels_json     = excluded.labels_json,
-            formats_json    = excluded.formats_json,
-            formats_text    = excluded.formats_text,
-            genres_json     = excluded.genres_json,
-            styles_json     = excluded.styles_json,
-            thumb           = excluded.thumb,
-            cover_image     = excluded.cover_image,
-            basic_synced_at = excluded.basic_synced_at,
-            updated_at      = excluded.updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP(), UTC_TIMESTAMP())
+        ON DUPLICATE KEY UPDATE
+            master_id       = VALUES(master_id),
+            title           = VALUES(title),
+            artists_text    = VALUES(artists_text),
+            primary_artist  = VALUES(primary_artist),
+            artists_json    = VALUES(artists_json),
+            year            = VALUES(year),
+            labels_json     = VALUES(labels_json),
+            formats_json    = VALUES(formats_json),
+            formats_text    = VALUES(formats_text),
+            genres_json     = VALUES(genres_json),
+            styles_json     = VALUES(styles_json),
+            thumb           = VALUES(thumb),
+            cover_image     = VALUES(cover_image),
+            basic_synced_at = VALUES(basic_synced_at),
+            updated_at      = VALUES(updated_at)
     ")->execute([
         (int) $basic['id'],
         !empty($basic['master_id']) ? (int) $basic['master_id'] : null,
@@ -380,16 +380,16 @@ function upsert_collection_item(array $entry, array $basic): bool
     db()->prepare("
         INSERT INTO items (source, instance_id, release_id, folder_id, date_added, rating, discogs_fields_json, media_kind)
         VALUES ('collection', ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(instance_id) WHERE instance_id IS NOT NULL DO UPDATE SET
+        ON DUPLICATE KEY UPDATE
             source              = 'collection',
-            release_id          = excluded.release_id,
-            folder_id           = excluded.folder_id,
-            date_added          = excluded.date_added,
-            rating              = excluded.rating,
-            discogs_fields_json = excluded.discogs_fields_json,
-            media_kind          = CASE WHEN items.media_kind_locked = 1 THEN items.media_kind ELSE excluded.media_kind END,
+            release_id          = VALUES(release_id),
+            folder_id           = VALUES(folder_id),
+            date_added          = VALUES(date_added),
+            rating              = VALUES(rating),
+            discogs_fields_json = VALUES(discogs_fields_json),
+            media_kind          = CASE WHEN items.media_kind_locked = 1 THEN items.media_kind ELSE VALUES(media_kind) END,
             missing_since       = NULL,
-            updated_at          = datetime('now')
+            updated_at          = UTC_TIMESTAMP()
     ")->execute([
         $instanceId,
         (int) $basic['id'],
@@ -412,12 +412,12 @@ function upsert_wantlist_item(array $want, array $basic): bool
     db()->prepare("
         INSERT INTO items (source, release_id, date_added, rating, notes, media_kind)
         VALUES ('wantlist', ?, ?, ?, NULL, ?)
-        ON CONFLICT(source, release_id) WHERE source = 'wantlist' AND release_id IS NOT NULL DO UPDATE SET
-            date_added    = excluded.date_added,
-            rating        = excluded.rating,
-            media_kind    = CASE WHEN items.media_kind_locked = 1 THEN items.media_kind ELSE excluded.media_kind END,
+        ON DUPLICATE KEY UPDATE
+            date_added    = VALUES(date_added),
+            rating        = VALUES(rating),
+            media_kind    = CASE WHEN items.media_kind_locked = 1 THEN items.media_kind ELSE VALUES(media_kind) END,
             missing_since = NULL,
-            updated_at    = datetime('now')
+            updated_at    = UTC_TIMESTAMP()
     ")->execute([
         $releaseId,
         (string) ($want['date_added'] ?? ''),
@@ -440,11 +440,11 @@ function mark_missing(string $source, array $seenIds, string $column): int
         return 0;
     }
 
-    // A temp table rather than NOT IN (?, ?, …), which older SQLite caps at 999 variables.
-    db()->exec('CREATE TEMP TABLE IF NOT EXISTS seen_ids (id INTEGER PRIMARY KEY)');
+    // A temp table rather than NOT IN (?, ?, …) with a placeholder for every copy.
+    db()->exec('CREATE TEMPORARY TABLE IF NOT EXISTS seen_ids (id BIGINT PRIMARY KEY)');
     db()->exec('DELETE FROM seen_ids');
 
-    $insert = db()->prepare('INSERT OR IGNORE INTO seen_ids (id) VALUES (?)');
+    $insert = db()->prepare('INSERT IGNORE INTO seen_ids (id) VALUES (?)');
     db()->beginTransaction();
     foreach ($seenIds as $id) {
         $insert->execute([$id]);
@@ -453,7 +453,7 @@ function mark_missing(string $source, array $seenIds, string $column): int
 
     $flag = db()->prepare("
         UPDATE items
-           SET missing_since = COALESCE(missing_since, ?), updated_at = datetime('now')
+           SET missing_since = COALESCE(missing_since, ?), updated_at = UTC_TIMESTAMP()
          WHERE source = ? AND missing_since IS NULL
            AND $column IS NOT NULL
            AND $column NOT IN (SELECT id FROM seen_ids)
@@ -476,19 +476,14 @@ function mark_missing(string $source, array $seenIds, string $column): int
 
 const STALE_DETAIL_WHERE = "
     discogs_id IN (SELECT release_id FROM items WHERE release_id IS NOT NULL)
-    AND (detail_fetched_at IS NULL OR detail_fetched_at < datetime('now', ?))
+    AND (detail_fetched_at IS NULL OR detail_fetched_at < UTC_TIMESTAMP() - INTERVAL ? DAY)
 ";
-
-function detail_age_modifier(): string
-{
-    return '-' . detail_max_age_days() . ' days';
-}
 
 /** Releases on a shelf or a wantlist whose detail is missing or stale. */
 function count_pending_details(): int
 {
     $stmt = db()->prepare('SELECT COUNT(*) FROM releases WHERE ' . STALE_DETAIL_WHERE);
-    $stmt->execute([detail_age_modifier()]);
+    $stmt->execute([detail_max_age_days()]);
 
     return (int) $stmt->fetchColumn();
 }
@@ -499,10 +494,10 @@ function sync_details(int $runId, DiscogsClient $client, float $deadline): int
     $stmt = db()->prepare('
         SELECT discogs_id FROM releases
          WHERE ' . STALE_DETAIL_WHERE . '
-         ORDER BY detail_fetched_at IS NOT NULL, detail_fetched_at ASC
+         ORDER BY detail_fetched_at IS NOT NULL, detail_fetched_at ASC, discogs_id
          LIMIT 500
     ');
-    $stmt->execute([detail_age_modifier()]);
+    $stmt->execute([detail_max_age_days()]);
 
     $fetched = 0;
     foreach ($stmt->fetchAll() as $row) {
@@ -556,8 +551,8 @@ function upsert_release_detail(array $full): void
             videos_json        = ?,
             series_json        = ?,
             date_changed       = ?,
-            detail_fetched_at  = datetime('now'),
-            updated_at         = datetime('now')
+            detail_fetched_at  = UTC_TIMESTAMP(),
+            updated_at         = UTC_TIMESTAMP()
         WHERE discogs_id = ?
     ")->execute([
         !empty($full['master_id']) ? (int) $full['master_id'] : null,
@@ -638,7 +633,7 @@ function sync_one_item(array $item): string
     // After the basics, so the fuller detail is what stays.
     upsert_release_detail($full);
 
-    db()->prepare("UPDATE items SET media_kind = ?, updated_at = datetime('now') WHERE id = ? AND media_kind_locked = 0")
+    db()->prepare("UPDATE items SET media_kind = ?, updated_at = UTC_TIMESTAMP() WHERE id = ? AND media_kind_locked = 0")
         ->execute([detect_media_kind(release_formats($full)), $item['id']]);
 
     // A changed title or credit can move it to another artist page or era.
@@ -658,7 +653,7 @@ function create_sale_item_from_discogs(int $releaseId): array
     $full = sync_client()->release($releaseId);
 
     // upsert_release_detail() only updates, so the row has to exist first.
-    db()->prepare('INSERT OR IGNORE INTO releases (discogs_id) VALUES (?)')->execute([$releaseId]);
+    db()->prepare('INSERT IGNORE INTO releases (discogs_id) VALUES (?)')->execute([$releaseId]);
     upsert_release_detail($full);
 
     // The cover and thumb normally come from a listing's basic information,
@@ -699,7 +694,7 @@ function assign_items_to_artists_and_eras(): void
 
     // [kind][discogs id] => [era id, rank]
     $rules = ['master' => [], 'release' => []];
-    foreach (db()->query('SELECT era_id, kind, discogs_id, rank FROM era_rules') as $rule) {
+    foreach (db()->query('SELECT era_id, kind, discogs_id, `rank` FROM era_rules') as $rule) {
         $rules[$rule['kind']][(int) $rule['discogs_id']] = [(int) $rule['era_id'], (int) $rule['rank']];
     }
 

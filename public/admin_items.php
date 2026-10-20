@@ -119,7 +119,11 @@ $where = ['i.source = ?'];
 $params = [$source];
 
 if ($search !== '') {
-    $where[] = '(r.title LIKE ? OR r.artists_text LIKE ? OR i.manual_title LIKE ? OR i.manual_artist LIKE ? OR i.barcode LIKE ? OR r.barcode LIKE ? OR i.notes LIKE ?)';
+    // case-insensitive, as SQLite's LIKE was (the columns themselves compare exactly)
+    $where[] = '(' . implode(' OR ', array_map(
+        fn ($column) => "$column LIKE ? COLLATE utf8mb4_unicode_ci",
+        ['r.title', 'r.artists_text', 'i.manual_title', 'i.manual_artist', 'i.barcode', 'r.barcode', 'i.notes']
+    )) . ')';
     array_push($params, ...array_fill(0, 7, '%' . $search . '%'));
 }
 if ($kind !== '') {

@@ -107,7 +107,7 @@ function attempt_login(string $email, string $password): ?string
 
     session_regenerate_id(true);
     $_SESSION['user_id'] = (int) $row['id'];
-    db()->prepare("UPDATE users SET last_login_at = datetime('now') WHERE id = ?")->execute([$row['id']]);
+    db()->prepare("UPDATE users SET last_login_at = UTC_TIMESTAMP() WHERE id = ?")->execute([$row['id']]);
 
     return null;
 }
@@ -148,7 +148,7 @@ function record_login_failure(): void
 {
     db()->prepare('
         INSERT INTO login_failures (ip, fails, last_fail) VALUES (?, 1, ?)
-        ON CONFLICT(ip) DO UPDATE SET fails = fails + 1, last_fail = excluded.last_fail
+        ON DUPLICATE KEY UPDATE fails = fails + 1, last_fail = VALUES(last_fail)
     ')->execute([login_client_ip(), time()]);
 
     // Addresses that have gone quiet for a day start again from nothing.

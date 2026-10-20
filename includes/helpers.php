@@ -144,7 +144,7 @@ function data_version(): string
         $db->query('SELECT MAX(updated_at) FROM items')->fetchColumn(),
         $db->query('SELECT MAX(updated_at) FROM releases')->fetchColumn(),
         // The admin keeps its own list filters as settings; those change nothing public.
-        $db->query("SELECT MAX(updated_at) FROM settings WHERE key NOT LIKE 'admin\\_%' ESCAPE '\\'")->fetchColumn(),
+        $db->query("SELECT MAX(updated_at) FROM settings WHERE LEFT(`key`, 6) <> 'admin_'")->fetchColumn(),
         // Neither table has an updated_at, and both are small.
         md5(json_encode([
             $db->query('SELECT * FROM artists ORDER BY id')->fetchAll(),
@@ -237,7 +237,7 @@ function discogs_release_url(int $id): string
 /* ---------- Dates ---------- */
 
 /**
- * SQLite's datetime('now') is UTC with no zone, so those are read as UTC;
+ * The database's timestamps (UTC_TIMESTAMP()) are UTC with no zone, so those are read as UTC;
  * anything carrying its own offset is left alone.
  */
 function to_timestamp(?string $value): ?int

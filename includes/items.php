@@ -23,7 +23,7 @@ const ITEM_SELECT = '
  * just the year). A date typed in the admin is free text SQL can't read, so
  * rows already in PHP sort by item_sort_date() instead.
  */
-const RELEASE_DATE_SQL = "COALESCE(NULLIF(r.released, ''), CASE WHEN r.year > 0 THEN printf('%04d', r.year) END)";
+const RELEASE_DATE_SQL = "COALESCE(NULLIF(r.released, ''), CASE WHEN r.year > 0 THEN LPAD(r.year, 4, '0') END)";
 
 /** What a visitor may see: visible, and still on Discogs; a disc from a box set only while its box is too. */
 const PUBLIC_ITEM_WHERE = 'i.is_visible = 1 AND i.missing_since IS NULL AND (i.parent_item_id IS NULL OR EXISTS (
@@ -39,7 +39,8 @@ function public_items(string $source = 'collection', array $where = [], array $p
     foreach ($where as $clause) {
         $sql .= " AND $clause";
     }
-    $sql .= ' ORDER BY i.sort_rank DESC, r.primary_artist COLLATE NOCASE, ' . RELEASE_DATE_SQL . ', r.title COLLATE NOCASE';
+    // i.id last: ties come back in the order the rows were added, as SQLite gave them
+    $sql .= ' ORDER BY i.sort_rank DESC, LOWER(r.primary_artist), ' . RELEASE_DATE_SQL . ', LOWER(r.title), i.id';
 
     $stmt = db()->prepare($sql);
     $stmt->execute(array_merge([$source], $params));
@@ -400,12 +401,21 @@ function sale_condition_label(array $row): ?string
 /** An empty row shaped like one from ITEM_SELECT, for the form that adds a record by hand. */
 function blank_item_row(): array
 {
+    $columns = db()->prepare("
+        SELECT column_name AS name, column_default AS dflt FROM information_schema.columns
+         WHERE table_schema = DATABASE() AND table_name = ? AND is_generated = 'NEVER'
+         ORDER BY ordinal_position
+    ");
+
     $row = [];
-    foreach (db()->query('PRAGMA table_info(items)')->fetchAll() as $column) {
-        $row[$column['name']] = $column['dflt_value'] !== null ? trim($column['dflt_value'], "'") : null;
+    $columns->execute(['items']);
+    foreach ($columns->fetchAll() as $column) {
+        // MariaDB gives a column without a default as the text NULL, and a text default in quotes
+        $row[$column['name']] = $column['dflt'] !== null && $column['dflt'] !== 'NULL' ? trim($column['dflt'], "'") : null;
     }
 
-    foreach (array_column(db()->query('PRAGMA table_info(releases)')->fetchAll(), 'name') as $name) {
+    $columns->execute(['releases']);
+    foreach (array_column($columns->fetchAll(), 'name') as $name) {
         // barcode is on both tables; ITEM_SELECT aliases the release's.
         $row[$name === 'barcode' ? 'release_barcode' : $name] = $row[$name] ?? null;
     }

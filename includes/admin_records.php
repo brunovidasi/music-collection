@@ -49,7 +49,7 @@ function update_item(int $id, array $values, array $expressions = []): void
         $sets[] = $sql;
         array_push($params, ...$expressionParams);
     }
-    $sets[] = "updated_at = datetime('now')";
+    $sets[] = "updated_at = UTC_TIMESTAMP()";
 
     db()->prepare('UPDATE items SET ' . implode(', ', $sets) . ' WHERE id = ?')->execute([...$params, $id]);
 

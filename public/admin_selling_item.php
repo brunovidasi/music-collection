@@ -67,7 +67,7 @@ if (is_post()) {
         }
 
         update_item((int) $item['id'], $values + posted_sale_overrides($item), [
-            "sold_at = CASE WHEN ? THEN COALESCE(sold_at, datetime('now')) ELSE NULL END" => [posted_flag('sold')],
+            "sold_at = CASE WHEN ? THEN COALESCE(sold_at, UTC_TIMESTAMP()) ELSE NULL END" => [posted_flag('sold')],
         ]);
 
         flash('Saved "' . item_title(item_by_id((int) $item['id'])) . '".');

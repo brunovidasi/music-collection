@@ -36,7 +36,9 @@ $pageNo = max(1, (int) query('page', '1'));
 $where = [];
 $params = [];
 if ($search !== '') {
-    $where[] = '(trigger_source LIKE ? OR status LIKE ? OR phase LIKE ? OR message LIKE ? OR log LIKE ?)';
+    // case-insensitive, as SQLite's LIKE was (the columns themselves compare exactly)
+    $where[] = '(trigger_source LIKE ? COLLATE utf8mb4_unicode_ci OR status LIKE ? COLLATE utf8mb4_unicode_ci OR phase LIKE ? COLLATE utf8mb4_unicode_ci'
+        . ' OR message LIKE ? COLLATE utf8mb4_unicode_ci OR log LIKE ? COLLATE utf8mb4_unicode_ci)';
     array_push($params, ...array_fill(0, 5, '%' . $search . '%'));
 }
 if ($status !== '') {

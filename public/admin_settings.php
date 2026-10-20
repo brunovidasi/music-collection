@@ -40,7 +40,7 @@ if (is_post()) {
     }
 
     if (post('action') === 'reset_header') {
-        db()->exec("DELETE FROM settings WHERE key LIKE 'hero\_%' ESCAPE '\\'");
+        db()->exec("DELETE FROM settings WHERE LEFT(`key`, 5) = 'hero_'");
         flash('The header is back to its defaults.');
         redirect('admin_settings');
     }

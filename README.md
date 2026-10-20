@@ -95,7 +95,8 @@ the records are arranged, never in what a record looks like.
 
 ## Requirements
 
-- PHP 8.1+ with `pdo_sqlite` and `curl`
+- PHP 8.1+ with `pdo_mysql` and `curl`
+- MySQL or MariaDB (`brew install mariadb@11.4` locally, as the server runs 11.4)
 - A Discogs [personal access token](https://www.discogs.com/settings/developers)
   (free). It raises the rate limit from 25 calls a minute to 60, which halves
   the time a first sync takes — phase 3 below is one call per release.
@@ -104,7 +105,10 @@ the records are arranged, never in what a record looks like.
 
 ```sh
 cp config/config.example.php config/config.php
-# edit config/config.php: owner_email, discogs.username, discogs.token
+# edit config/config.php: owner_email, discogs.username, discogs.token, and the
+# development database ('db'); its tables (and the artists and eras) are made on
+# the first request
+mysql -e 'CREATE DATABASE music_development'
 php -S localhost:8010 -t public dev-server.php
 ```
 
@@ -237,8 +241,13 @@ every web root:
 
 ```
 /home/brunovidasi/music-instance/config.php   <- the real config
-/home/brunovidasi/music-instance/data/        <- the SQLite database
+/home/brunovidasi/music-instance/data/        <- the sync log and caches
 ```
+
+The database is MySQL, `brunovidasi_music` (cPanel → Manage My Databases, user
+`brunovidasi_music`; phpMyAdmin shows it), named in the config's `production` →
+`db`. `sql/schema.sql` is applied whenever it changes (`includes/db.php` keeps a
+hash of it in `settings`).
 
 The app walks up the tree looking for a directory named `music-instance`, so no
 absolute server path is ever hardcoded. The dashboard's "Where things are" panel
@@ -250,9 +259,10 @@ deploy.
 1. Push to `main`; this repo's GitHub Action rsyncs the tree up.
 2. Create `music-instance/config.php` with `'env' => 'production'`, the Discogs
    token, `owner_email` and a `cron_token`.
-3. Either upload the dev SQLite database as `music-instance/data/collection.production.sqlite`
-   to carry over everything already synced locally, or leave `data/` empty and let
-   `/setup` + a first sync build it fresh on the server.
+3. Create the MySQL database and its user in cPanel, and put them in the config's
+   `production` → `db`. Either load the dev database into it (`mysqldump`) to carry
+   over everything already synced locally, or leave it empty and let `/setup` + a
+   first sync build it on the server.
 4. Open `/setup` and create the account (skip this if you uploaded the dev
    database — the account already exists in it).
 5. Sync from the dashboard (the first one takes a while — see above), or skip it
@@ -324,8 +334,9 @@ collection is undoable from here.
 
 - The Discogs token, the cron token and the password hash live outside the repo
   and outside the web root.
-- The database is denied over HTTP twice: by `data/.htaccess` and by a
-  `FilesMatch` on `.sqlite` in the app's own `.htaccess`.
+- The database is MySQL, not a file in the tree; its password is in the instance
+  config. The data folder (logs, caches) is denied over HTTP by `data/.htaccess`
+  and a `FilesMatch` in the app's own `.htaccess`.
 - Every admin form is CSRF-checked; the session cookie is scoped to this app's
   path, `HttpOnly`, `SameSite=Strict`, and `Secure` in production.
 - Everything from Discogs is escaped on output, and only `http(s)` URLs from the

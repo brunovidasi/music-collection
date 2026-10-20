@@ -52,7 +52,7 @@ function era_by_id(int $id): ?array
 
 function era_rules(int $eraId): array
 {
-    $stmt = db()->prepare('SELECT * FROM era_rules WHERE era_id = ? ORDER BY rank, id');
+    $stmt = db()->prepare('SELECT * FROM era_rules WHERE era_id = ? ORDER BY `rank`, id');
     $stmt->execute([$eraId]);
 
     return $stmt->fetchAll();
@@ -88,7 +88,7 @@ function artist_record_counts(bool $visibleOnly = false): array
 function save_era_rule(int $eraId, string $kind, int $discogsId, int $rank): void
 {
     db()->prepare('
-        INSERT INTO era_rules (era_id, kind, discogs_id, rank) VALUES (?, ?, ?, ?)
-        ON CONFLICT(kind, discogs_id) DO UPDATE SET era_id = excluded.era_id
+        INSERT INTO era_rules (era_id, kind, discogs_id, `rank`) VALUES (?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE era_id = VALUES(era_id)
     ')->execute([$eraId, $kind, $discogsId, $rank]);
 }

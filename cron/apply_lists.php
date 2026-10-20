@@ -84,8 +84,8 @@ foreach ($plan['eras'] as $position => $era) {
 /* ---------- Rules, so a later sync files new pressings the same way ---------- */
 
 $rule = $db->prepare("
-    INSERT INTO era_rules (era_id, kind, discogs_id, rank) VALUES (?, 'master', ?, ?)
-    ON CONFLICT(kind, discogs_id) DO UPDATE SET era_id = excluded.era_id, rank = excluded.rank
+    INSERT INTO era_rules (era_id, kind, discogs_id, `rank`) VALUES (?, 'master', ?, ?)
+    ON DUPLICATE KEY UPDATE era_id = VALUES(era_id), `rank` = VALUES(`rank`)
 ");
 foreach ($plan['rules'] ?? [] as $r) {
     $rule->execute([$eraIds[$r['era']], $r['master'], $r['rank']]);
@@ -185,7 +185,7 @@ foreach ([...$plan['items'], ...($plan['discs'] ?? [])] as $entry) {
     }
 
     $columns = implode(', ', array_map(fn ($key) => "$key = ?", array_keys($changed)));
-    $db->prepare("UPDATE items SET $columns, updated_at = datetime('now') WHERE id = ?")
+    $db->prepare("UPDATE items SET $columns, updated_at = UTC_TIMESTAMP() WHERE id = ?")
        ->execute([...array_values($changed), $item['id']]);
     $updated++;
 }

@@ -268,7 +268,7 @@ function hero_artist_cover(array $artist): string
     $stmt = db()->prepare(ITEM_SELECT . "
          WHERE i.source = 'collection' AND " . PUBLIC_ITEM_WHERE . " AND i.artist_id = ?
            AND COALESCE(NULLIF(i.cover_url, ''), NULLIF(r.thumb, ''), NULLIF(r.cover_image, '')) IS NOT NULL
-         ORDER BY i.sort_rank DESC, " . RELEASE_DATE_SQL . ', r.title COLLATE NOCASE
+         ORDER BY i.sort_rank DESC, " . RELEASE_DATE_SQL . ', LOWER(r.title), i.id
          LIMIT 1');
     $stmt->execute([$artist['id']]);
     $row = $stmt->fetch();

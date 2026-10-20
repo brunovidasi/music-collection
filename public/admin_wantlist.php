@@ -26,8 +26,8 @@ if (is_post()) {
     redirect('admin_wantlist');
 }
 
-$wanted = items_query("WHERE i.source = 'wantlist' AND i.missing_since IS NULL ORDER BY r.primary_artist COLLATE NOCASE, " . RELEASE_DATE_SQL);
-$hunting = items_query("WHERE i.source = 'searching' ORDER BY i.created_at DESC");
+$wanted = items_query("WHERE i.source = 'wantlist' AND i.missing_since IS NULL ORDER BY LOWER(r.primary_artist), " . RELEASE_DATE_SQL . ', i.id');
+$hunting = items_query("WHERE i.source = 'searching' ORDER BY i.created_at DESC, i.id");
 
 admin_header('Wantlist', count($wanted) . ' on the Discogs wantlist, ' . count($hunting) . ' being hunted by hand.');
 ?>

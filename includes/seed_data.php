@@ -73,7 +73,7 @@ function seed_artists_and_eras(PDO $db): void
 
     $insertArtist = $db->prepare('INSERT INTO artists (slug, name, match_names, tagline, accent, position) VALUES (?, ?, ?, ?, ?, ?)');
     $insertEra = $db->prepare('INSERT INTO eras (artist_id, slug, name, years, tagline, position) VALUES (?, ?, ?, ?, ?, ?)');
-    $insertRule = $db->prepare('INSERT OR IGNORE INTO era_rules (era_id, kind, discogs_id, rank) VALUES (?, ?, ?, ?)');
+    $insertRule = $db->prepare('INSERT IGNORE INTO era_rules (era_id, kind, discogs_id, `rank`) VALUES (?, ?, ?, ?)');
 
     foreach ($artists as $artistPosition => $artist) {
         $insertArtist->execute([
