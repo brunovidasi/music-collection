@@ -1,11 +1,9 @@
-# The Collection, deployed at https://brunovida.si/music (public_html/music).
+# The Collection, deployed at https://music.brunovidasi.com, whose document
+# root is this folder (/home/brunovidasi/music.brunovidasi.com).
 #
 # Every request is mapped into public/, the only folder that may be reachable
 # over HTTP, so the server's layout is the repo's. dev-server.php mirrors these
 # rules for PHP's built-in server.
-#
-# A parent .htaccess's rewrite rules are not inherited once this one turns the
-# RewriteEngine on.
 
 Options -Indexes
 DirectoryIndex index.php index.html
@@ -13,18 +11,24 @@ DirectoryIndex index.php index.html
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # The URL path this app is mounted at.
-    RewriteBase /music/
+    # The app is mounted at the root of its own subdomain.
+    RewriteBase /
+
+    # One address: music.brunovida.si (the same folder) and the www. names go to
+    # music.brunovidasi.com, path and all. The sign-in, the links and the cron URL
+    # are built from base_url, so the admin only works on that one.
+    RewriteCond %{HTTP_HOST} ^(www\.music\.brunovidasi\.com|(www\.)?music\.brunovida\.si)$ [NC]
+    RewriteRule ^ https://music.brunovidasi.com%{REQUEST_URI} [L,R=301,NE]
 
     # HTTPS only. The second condition stops a redirect loop behind a proxy that terminates TLS.
     RewriteCond %{HTTPS} !=on
     RewriteCond %{HTTP:X-Forwarded-Proto} !=https
     RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-    # /music/public/… to the canonical URL. THE_REQUEST is the client's own
+    # /public/… to the canonical URL. THE_REQUEST is the client's own
     # request line, untouched by the rewrites below.
-    RewriteCond %{THE_REQUEST} \s/music/public/ [NC]
-    RewriteRule ^public/(.*)$ /music/$1 [L,R=301]
+    RewriteCond %{THE_REQUEST} \s/public/ [NC]
+    RewriteRule ^public/(.*)$ /$1 [L,R=301]
 
     # Stop here once inside public/: the rules re-run after every rewrite.
     RewriteRule ^public/ - [L]
@@ -34,38 +38,46 @@ DirectoryIndex index.php index.html
     RewriteRule ^$ public/index.php [L]
 
     # The JSON API: /api/collection -> public/api/collection.php
-    RewriteCond %{DOCUMENT_ROOT}/music/public/api/$1.php -f
+    RewriteCond %{DOCUMENT_ROOT}/public/api/$1.php -f
     RewriteRule ^api/([A-Za-z0-9_]+)$ public/api/$1.php [L,QSA]
 
     # The pages, linked without .php: /admin -> public/admin.php. An unknown name
     # falls through to the artist rule.
-    RewriteCond %{DOCUMENT_ROOT}/music/public/$1.php -f
+    RewriteCond %{DOCUMENT_ROOT}/public/$1.php -f
     RewriteRule ^([A-Za-z0-9_]+)$ public/$1.php [L,QSA]
 
     # Artist pages are rows in the database: /lady-gaga, /anitta… A real page
     # name wins, and artist.php answers 404 for an unknown slug. The conditions
     # test inside public/, where the real files are, so /prototypes/ still works.
-    RewriteCond %{DOCUMENT_ROOT}/music/public/$1 !-f
-    RewriteCond %{DOCUMENT_ROOT}/music/public/$1 !-d
+    RewriteCond %{DOCUMENT_ROOT}/public/$1 !-f
+    RewriteCond %{DOCUMENT_ROOT}/public/$1 !-d
     RewriteRule ^([a-z0-9][a-z0-9-]*)/?$ public/artist.php?slug=$1 [L,QSA]
 
     # Old .php URLs redirect to the extensionless ones. GET only, since a 301
     # would turn a POST into a GET and drop its body. cron_sync keeps its .php:
     # its URL lives in a scheduler's config.
     RewriteCond %{REQUEST_METHOD} =GET
-    RewriteRule ^(?!cron_sync)([A-Za-z0-9_]+)\.php$ /music/$1 [L,R=301,NE]
+    RewriteRule ^(?!cron_sync)([A-Za-z0-9_]+)\.php$ /$1 [L,R=301,NE]
 
     # Everything else (css, js, fonts, images, prototypes) is served from public/.
     RewriteRule ^(.*)$ public/$1 [L]
 </IfModule>
 
 # The app's own error pages, through the rewrites above to public/404.php and
-# public/500.php, for this folder only (the parent site has its own). A PHP
-# fatal draws the same 500 page from includes/runtime.php.
-ErrorDocument 404 /music/404
-ErrorDocument 500 /music/500
+# public/500.php. A PHP fatal draws the same 500 page from includes/runtime.php.
+ErrorDocument 404 /404
+ErrorDocument 500 /500
 
 <IfModule mod_headers.c>
+    # Code is revalidated on every load and pictures are kept a week: the rules
+    # this app had from brunovida.si's .htaccess when it lived under it.
+    <FilesMatch "\.(html?|shtml|js|mjs|css|json|pdf)$">
+        Header set Cache-Control "no-cache"
+    </FilesMatch>
+    <FilesMatch "\.(png|jpe?g|gif|webp|avif|svg|ico|woff2?|ttf|otf|eot|mp3|mp4|webm)$">
+        Header set Cache-Control "public, max-age=604800"
+    </FilesMatch>
+
     Header always set X-Content-Type-Options "nosniff"
     Header always set X-Frame-Options "DENY"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"

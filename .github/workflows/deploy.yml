@@ -1,19 +1,34 @@
-name: Deploy to Server via FTP
+name: Deploy to Namecheap over SSH
 
-# This repo deploys itself to public_html/music (brunovida.si/music). The
-# brunovidasi.com repo excludes music/ from its own deploy, so neither touches
-# the other's files. The instance (config, database) isn't in the repo, and the
-# deploy only ever deletes files it uploaded itself, so it stays as it is.
+# This repo deploys itself to /home/brunovidasi/music.brunovidasi.com, the
+# document root of music.brunovidasi.com (music.brunovida.si is the same folder
+# and redirects there). rsync compares contents and only sends what changed;
+# times aren't copied, so a changed file gets a new time (and asset_url() a new
+# ?v=) and an unchanged one keeps its own.
+#
+# A file deleted from the repo is deleted on the server too, except what only
+# lives there, protected below: the covers' small copies the sync makes, the
+# certificate checks and PHP's own error logs. The instance (config, database)
+# is /home/brunovidasi/music-instance, outside this folder, so no deploy can
+# reach it.
+#
+# Run by hand from the Actions tab, it only lists what it would change, unless
+# "Dry run" is unticked.
 
 on:
   push:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Dry run (list what would change, change nothing)
+        type: boolean
+        default: true
 
 jobs:
-  ftp-deploy:
-    name: FTP Deploy
+  deploy:
+    name: Deploy over SSH
     runs-on: ubuntu-latest
 
     steps:
@@ -27,19 +42,32 @@ jobs:
       - name: Minify CSS and JS
         run: npx --yes esbuild@0.25.0 public/css/*.css public/js/*.js --minify --outdir=public --outbase=public --allow-overwrite --log-level=warning
 
-      # FTP_SERVER_DIR (a repository variable) is only needed for an FTP account
-      # whose root is not the hosting account's: one locked to the music folder
-      # uses ./
-      - name: Deploy via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./
-          server-dir: ${{ vars.FTP_SERVER_DIR || '/domains/brunovidasi.com/public_html/music/' }}
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/node_modules/**
-            **/.github/**
+      - name: Set up SSH
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      # SSH_TARGET_DIR (a repository variable) points a deploy at another folder,
+      # relative to the account's home, such as a test copy.
+      - name: Deploy with rsync
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          TARGET: ${{ vars.SSH_TARGET_DIR || 'music.brunovidasi.com' }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '--dry-run' || '' }}
+        run: |
+          rsync -rlz --checksum --delete --itemize-changes $DRY_RUN \
+            --exclude='.git*' --exclude='/.github/' --exclude='node_modules/' \
+            --filter='P /public/covers/' \
+            --filter='P /.well-known/' \
+            --filter='P /cgi-bin/' \
+            --filter='P /.user.ini' \
+            --filter='P error_log' \
+            -e "ssh -i $HOME/.ssh/deploy_key -p $SSH_PORT -o IdentitiesOnly=yes -o BatchMode=yes" \
+            ./ "$SSH_USER@$SSH_HOST:$TARGET/"
